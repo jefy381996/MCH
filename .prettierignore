@@ -1,0 +1,6 @@
+node_modules
+dist
+contracts/build
+contracts/plutus.json
+package-lock.json
+deployments

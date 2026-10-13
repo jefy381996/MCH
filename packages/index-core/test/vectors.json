@@ -1,0 +1,329 @@
+{
+  "description": "Shared MCH index test vectors. Consumed by packages/index-core tests and generated into contracts/lib/mch/index_vectors_test.ak. Expected values come from an independent exact-rational reference.",
+  "cases": [
+    {
+      "name": "all prices at base -> exactly 100",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4000000000",
+        "XAG": "48000000",
+        "XPT": "1600000000",
+        "NI": "15500000000"
+      },
+      "expectedIndexMicro": "100000000"
+    },
+    {
+      "name": "roadmap worked example: +10%, -5%, +2%, flat -> 101.75",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4400000000",
+        "XAG": "45600000",
+        "XPT": "1632000000",
+        "NI": "15500000000"
+      },
+      "expectedIndexMicro": "101750000"
+    },
+    {
+      "name": "every metal doubles -> 200",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "8000000000",
+        "XAG": "96000000",
+        "XPT": "3200000000",
+        "NI": "31000000000"
+      },
+      "expectedIndexMicro": "200000000"
+    },
+    {
+      "name": "nickel x3.5 (March 2022 style squeeze), rest flat",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4000000000",
+        "XAG": "48000000",
+        "XPT": "1600000000",
+        "NI": "54250000000"
+      },
+      "expectedIndexMicro": "162500000"
+    },
+    {
+      "name": "odd prices exercising rounding",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4012345678",
+        "XAG": "47123457",
+        "XPT": "1599999999",
+        "NI": "15512250000"
+      },
+      "expectedIndexMicro": "99640386"
+    },
+    {
+      "name": "one micro-dollar move in silver",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4000000000",
+        "XAG": "48000001",
+        "XPT": "1600000000",
+        "NI": "15500000000"
+      },
+      "expectedIndexMicro": "100000001"
+    },
+    {
+      "name": "crash: everything down 90%",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 250000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 250000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 250000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 250000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "400000000",
+        "XAG": "4800000",
+        "XPT": "160000000",
+        "NI": "1550000000"
+      },
+      "expectedIndexMicro": "10000000"
+    },
+    {
+      "name": "unequal weights 40/10/20/30",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 400000,
+          "basePriceMicro": "4000000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 100000,
+          "basePriceMicro": "48000000"
+        },
+        {
+          "metal": "XPT",
+          "weightPpm": 200000,
+          "basePriceMicro": "1600000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 300000,
+          "basePriceMicro": "15500000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4100000000",
+        "XAG": "50000000",
+        "XPT": "1550000000",
+        "NI": "16000000000"
+      },
+      "expectedIndexMicro": "101759409"
+    },
+    {
+      "name": "thirds with awkward base prices",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 333333,
+          "basePriceMicro": "3000000"
+        },
+        {
+          "metal": "XAG",
+          "weightPpm": 333333,
+          "basePriceMicro": "7000000"
+        },
+        {
+          "metal": "NI",
+          "weightPpm": 333334,
+          "basePriceMicro": "11000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4000000",
+        "XAG": "5000000",
+        "NI": "13000000"
+      },
+      "expectedIndexMicro": "107647918"
+    },
+    {
+      "name": "single-metal basket",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 1000000,
+          "basePriceMicro": "4000000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "4321980000"
+      },
+      "expectedIndexMicro": "108049500"
+    },
+    {
+      "name": "exact half micro-point rounds up",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 1000000,
+          "basePriceMicro": "200000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "200000001"
+      },
+      "expectedIndexMicro": "100000001"
+    },
+    {
+      "name": "just below half rounds down",
+      "components": [
+        {
+          "metal": "XAU",
+          "weightPpm": 1000000,
+          "basePriceMicro": "600000000"
+        }
+      ],
+      "pricesMicro": {
+        "XAU": "600000001"
+      },
+      "expectedIndexMicro": "100000000"
+    }
+  ]
+}
