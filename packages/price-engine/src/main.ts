@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { parseBasket } from '@mch/index-core';
 import { createAlerter } from './alerts.ts';
 import { corsOrigins, loadConfig } from './config.ts';
+import { loadDotEnv } from './env.ts';
 import { PriceEngine } from './engine.ts';
 import { QuoteGuard } from './guard.ts';
 import { createLogger } from './logger.ts';
@@ -10,6 +11,7 @@ import { buildServer } from './server.ts';
 import { createPriceSource } from './sources/index.ts';
 import { createPriceStore } from './store/index.ts';
 
+loadDotEnv();
 const config = loadConfig();
 const logger = createLogger(config);
 const basket = parseBasket(JSON.parse(readFileSync(config.BASKET_FILE, 'utf8')));

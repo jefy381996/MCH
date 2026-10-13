@@ -1,0 +1,48 @@
+# Local or single-server setup:
+#   docker compose up --build           website + API + database on http://localhost:8080
+#   docker compose --profile oracle up   ...plus the oracle submitter (after `npm run chain:deploy`)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mch
+      POSTGRES_PASSWORD: mch
+      POSTGRES_DB: mch
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mch']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://mch:mch@db:5432/mch
+      ORACLE_DEPLOYMENT_FILE: ${ORACLE_DEPLOYMENT_FILE:-}
+      CARDANO_PROVIDER: ${CARDANO_PROVIDER:-koios}
+      BLOCKFROST_PROJECT_ID: ${BLOCKFROST_PROJECT_ID:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    ports:
+      - '8080:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  submitter:
+    build: .
+    profiles: [oracle]
+    command: ['node', 'packages/chain/scripts/submitter.ts']
+    environment:
+      PRICE_API_URL: http://app:8080
+      CARDANO_NETWORK: ${CARDANO_NETWORK:-Preprod}
+      CARDANO_PROVIDER: ${CARDANO_PROVIDER:-koios}
+      BLOCKFROST_PROJECT_ID: ${BLOCKFROST_PROJECT_ID:-}
+      OPERATOR_SEED: ${OPERATOR_SEED:?set OPERATOR_SEED to run the submitter}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    depends_on:
+      - app
+
+volumes:
+  db-data:
