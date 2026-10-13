@@ -1,0 +1,12 @@
+{
+  "name": "MCH Basket",
+  "version": 1,
+  "baseDate": "2026-10-13",
+  "isDemo": true,
+  "components": [
+    { "metal": "XAU", "weightPpm": 250000, "basePrice": "4000.000000" },
+    { "metal": "XAG", "weightPpm": 250000, "basePrice": "48.000000" },
+    { "metal": "XPT", "weightPpm": 250000, "basePrice": "1600.000000" },
+    { "metal": "NI", "weightPpm": 250000, "basePrice": "15500.000000" }
+  ]
+}

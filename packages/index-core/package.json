@@ -1,0 +1,14 @@
+{
+  "name": "@mch/index-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCH basket definition and exact index arithmetic, shared by backend, oracle and website",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "gen:aiken-vectors": "node scripts/gen-aiken-vectors.ts"
+  }
+}

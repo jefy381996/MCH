@@ -1,0 +1,41 @@
+{
+  "name": "mch",
+  "private": true,
+  "description": "MCH (Metal Chain): a Cardano token tracking a basket of gold, silver, platinum and nickel",
+  "type": "module",
+  "workspaces": [
+    "packages/index-core",
+    "packages/chain",
+    "packages/price-engine",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @mch/price-engine",
+    "dev:web": "npm run dev -w @mch/web",
+    "build": "npm run build -w @mch/web",
+    "start": "npm run start -w @mch/price-engine",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "contracts:build": "cd contracts && aiken build",
+    "contracts:test": "cd contracts && aiken check",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "concurrently": "10.0.6",
+    "eslint": "10.12.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.4"
+  }
+}

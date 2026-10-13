@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+
+# Aiken build output (plutus.json is committed on purpose: it is the audited artifact)
+contracts/build/
+
+# Secrets: never commit signing keys or seed phrases
+secrets/
+*.skey
+*.seed
