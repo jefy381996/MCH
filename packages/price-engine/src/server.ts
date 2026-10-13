@@ -149,7 +149,13 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
       range,
       from: from.toISOString(),
       to: to.toISOString(),
-      points: points.map((p) => ({ t: p.at.toISOString(), index: formatMicro(p.indexMicro) })),
+      points: points.map((p) => ({
+        t: p.at.toISOString(),
+        index: formatMicro(p.indexMicro),
+        prices: Object.fromEntries(
+          Object.entries(p.pricesMicro).map(([metal, price]) => [metal, formatMicro(price!)]),
+        ),
+      })),
     };
   });
 
@@ -205,12 +211,25 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
     for (const s of sockets) s.close(1001, 'server shutting down');
   });
 
-  // The built website, if present. Unknown non-API paths get index.html so
-  // client-side routes work.
+  // The built website, if present. Files are looked up per request, so a
+  // rebuilt site is served without a restart. Page-like paths (no file
+  // extension) fall back to index.html for client-side routes; a missing
+  // asset is a real 404, never HTML pretending to be JavaScript.
   if (o.webDistDir && existsSync(o.webDistDir)) {
-    await app.register(fastifyStatic, { root: o.webDistDir, wildcard: false });
+    await app.register(fastifyStatic, {
+      root: o.webDistDir,
+      setHeaders(reply, filePath) {
+        reply.header(
+          'cache-control',
+          /[\\/]assets[\\/]/.test(filePath) ? 'public, max-age=31536000, immutable' : 'no-cache',
+        );
+      },
+    });
     app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !req.url.startsWith('/api/')) return reply.sendFile('index.html');
+      const path = req.url.split('?')[0] ?? '';
+      const isPage =
+        req.method === 'GET' && !path.startsWith('/api/') && !/\.[a-z0-9]+$/i.test(path);
+      if (isPage) return reply.header('cache-control', 'no-cache').sendFile('index.html');
       return reply.code(404).send({ error: 'not found' });
     });
   } else {

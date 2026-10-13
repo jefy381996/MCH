@@ -80,7 +80,11 @@ export class MemoryPriceStore implements PriceStore {
       // Later snapshots overwrite earlier ones: keep the last in each bucket.
       // The window is inclusive at both ends; the very last instant belongs to the last bucket.
       const bucket = Math.min(buckets - 1, Math.floor((t - from.getTime()) / width));
-      byBucket.set(bucket, { at: s.computedAt, indexMicro: s.indexMicro });
+      byBucket.set(bucket, {
+        at: s.computedAt,
+        indexMicro: s.indexMicro,
+        pricesMicro: Object.fromEntries(s.components.map((c) => [c.metal, c.priceMicro])),
+      });
     }
     return [...byBucket.values()];
   }

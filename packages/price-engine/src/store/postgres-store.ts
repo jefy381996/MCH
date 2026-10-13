@@ -191,17 +191,25 @@ export class PostgresPriceStore implements PriceStore {
 
   async indexHistory(from: Date, to: Date, buckets: number): Promise<HistoryPoint[]> {
     const widthMs = bucketWidthMs(from, to, buckets);
-    const { rows } = await this.pool.query<{ computed_at: Date; index_micro: string }>(
-      `SELECT DISTINCT ON (bucket) computed_at, index_micro
+    const { rows } = await this.pool.query<{
+      computed_at: Date;
+      index_micro: string;
+      components: StoredComponent[];
+    }>(
+      `SELECT DISTINCT ON (bucket) computed_at, index_micro, components
          FROM (
            SELECT LEAST($4::int - 1, floor(extract(epoch FROM (computed_at - $1::timestamptz)) * 1000 / $3)) AS bucket,
-                  computed_at, index_micro, id
+                  computed_at, index_micro, components, id
              FROM index_snapshots
             WHERE computed_at >= $1 AND computed_at <= $2
          ) b
         ORDER BY bucket, computed_at DESC, id DESC`,
       [from.toISOString(), to.toISOString(), widthMs, Math.max(1, buckets)],
     );
-    return rows.map((r) => ({ at: r.computed_at, indexMicro: BigInt(r.index_micro) }));
+    return rows.map((r) => ({
+      at: r.computed_at,
+      indexMicro: BigInt(r.index_micro),
+      pricesMicro: Object.fromEntries(r.components.map((c) => [c.metal, parseMicro(c.price)])),
+    }));
   }
 }
