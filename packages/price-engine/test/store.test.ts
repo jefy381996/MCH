@@ -73,6 +73,12 @@ function storeContract(name: string, make: () => Promise<PriceStore>) {
       }
       expect(points[points.length - 1]!.at).toEqual(new Date(T0 + 47 * HOUR));
       expect(points[points.length - 1]!.indexMicro).toBe(snapshotAt(47, 1.047).indexMicro);
+      expect(points[points.length - 1]!.pricesMicro).toEqual({
+        XAU: 4_188_000_000n,
+        XAG: 48_000_000n,
+        XPT: 1_600_000_000n,
+        NI: 15_500_000_000n,
+      });
     });
 
     it('returns nothing for an empty window', async () => {

@@ -1,4 +1,7 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -88,6 +91,12 @@ describe('GET /api/index/history', () => {
       '100.000000',
       '101.000000',
     ]);
+    expect(body.points[1].prices).toEqual({
+      XAU: '4160.000000',
+      XAG: '48.000000',
+      XPT: '1600.000000',
+      NI: '15500.000000',
+    });
   });
 });
 
@@ -198,5 +207,41 @@ describe('GET /api/oracle with a deployment', () => {
     const res = await app.inject('/api/oracle');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ configured: true, status: null, error: 'chain unavailable' });
+  });
+});
+
+describe('serving the website', () => {
+  function site() {
+    const dir = mkdtempSync(join(tmpdir(), 'mch-web-'));
+    mkdirSync(join(dir, 'assets'));
+    writeFileSync(join(dir, 'index.html'), '<!doctype html><title>MCH</title>');
+    writeFileSync(join(dir, 'assets', 'app-1.js'), 'console.log(1)');
+    return dir;
+  }
+
+  it('serves the page, its assets and client-side routes', async () => {
+    const { app } = await setup({ webDistDir: site() });
+    expect((await app.inject('/')).body).toContain('<title>MCH</title>');
+    const js = await app.inject('/assets/app-1.js');
+    expect(js.headers['content-type']).toMatch(/javascript/);
+    expect(js.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect((await app.inject('/some/page')).body).toContain('<title>MCH</title>');
+  });
+
+  it('answers a missing asset with 404, not with the HTML page', async () => {
+    const { app } = await setup({ webDistDir: site() });
+    const res = await app.inject('/assets/missing.js');
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['content-type']).toMatch(/json/);
+  });
+
+  it('serves files added after start-up (a rebuilt site needs no restart)', async () => {
+    const dir = site();
+    const { app } = await setup({ webDistDir: dir });
+    await app.ready();
+    writeFileSync(join(dir, 'assets', 'app-2.js'), 'console.log(2)');
+    const res = await app.inject('/assets/app-2.js');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe('console.log(2)');
   });
 });

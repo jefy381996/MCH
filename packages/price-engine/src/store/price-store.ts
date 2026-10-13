@@ -3,6 +3,8 @@ import type { IndexSnapshot, MetalId, PriceQuote } from '@mch/index-core';
 export interface HistoryPoint {
   at: Date;
   indexMicro: bigint;
+  /** Price of each basket metal in that snapshot, micro-USD. */
+  pricesMicro: Partial<Record<MetalId, bigint>>;
 }
 
 /**
