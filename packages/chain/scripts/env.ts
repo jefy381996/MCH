@@ -1,5 +1,12 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { LucidEvolution } from '@lucid-evolution/lucid';
 import { connect, isNetworkName, type ConnectOptions, type NetworkName } from '../src/network.ts';
+
+// Every chain script imports this module first, so .env is loaded before
+// anything reads process.env. Real environment variables win.
+const dotEnv = fileURLToPath(new URL('../../../.env', import.meta.url));
+if (existsSync(dotEnv)) process.loadEnvFile(dotEnv);
 
 /** Network and provider settings shared by every chain script. */
 export function connectOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): ConnectOptions {

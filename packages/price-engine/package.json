@@ -5,8 +5,8 @@
   "description": "MCH backend: fetches metal prices, computes the index, serves the API and website",
   "type": "module",
   "scripts": {
-    "dev": "node --watch --env-file-if-exists=../../.env src/main.ts",
-    "start": "node --env-file-if-exists=../../.env src/main.ts",
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

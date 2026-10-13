@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: TypeScript (index, backend, chain, website)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mch
+          POSTGRES_PASSWORD: mch
+          POSTGRES_DB: mch_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U mch"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgres://mch:mch@localhost:5432/mch_test
+      - run: npm run build
+
+  contracts:
+    name: Aiken contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: aiken-lang/setup-aiken@v1
+        with:
+          version: v1.1.24
+      - name: Formatting
+        working-directory: contracts
+        run: aiken fmt --check
+      - name: Tests (including the vectors shared with TypeScript)
+        working-directory: contracts
+        run: aiken check
+      - name: Committed plutus.json matches the source
+        run: |
+          cp contracts/plutus.json "$RUNNER_TEMP/committed.json"
+          (cd contracts && aiken build)
+          node scripts/compare-blueprints.mjs "$RUNNER_TEMP/committed.json" contracts/plutus.json
