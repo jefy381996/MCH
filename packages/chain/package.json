@@ -1,0 +1,17 @@
+{
+  "name": "@mch/chain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCH on-chain integration: deploy the oracle and token, publish index updates, read the feed",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lucid-evolution/lucid": "^0.8.1",
+    "@mch/index-core": "0.1.0"
+  }
+}
