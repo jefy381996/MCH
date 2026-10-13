@@ -26,7 +26,11 @@
     "format:check": "prettier --check .",
     "contracts:build": "cd contracts && aiken build",
     "contracts:test": "cd contracts && aiken check",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
+    "chain:wallets": "node --env-file-if-exists=.env packages/chain/scripts/wallets.ts",
+    "chain:deploy": "node --env-file-if-exists=.env packages/chain/scripts/deploy.ts",
+    "chain:submitter": "node --env-file-if-exists=.env packages/chain/scripts/submitter.ts",
+    "chain:status": "node --env-file-if-exists=.env packages/chain/scripts/status.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

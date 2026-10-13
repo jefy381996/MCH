@@ -5,6 +5,7 @@ import WebSocket from 'ws';
 import { PriceEngine } from '../src/engine.ts';
 import { QuoteGuard } from '../src/guard.ts';
 import { buildServer } from '../src/server.ts';
+import type { OracleReader, OracleStatus } from '../src/oracle-reader.ts';
 import { MemoryPriceStore } from '../src/store/memory-store.ts';
 import { allAt, basket, RecordingAlerter, ScriptedSource, silentLogger } from './fixtures.ts';
 
@@ -17,7 +18,7 @@ afterEach(async () => {
   app = undefined;
 });
 
-async function setup(options: { webDistDir?: string } = {}) {
+async function setup(options: { webDistDir?: string; oracle?: OracleReader } = {}) {
   let t = T0;
   const now = () => new Date(t);
   const source = new ScriptedSource();
@@ -160,5 +161,42 @@ describe('WebSocket /api/stream', () => {
     await received(2);
     expect(messages[1]?.data.snapshot.index).toBe('101.000000');
     ws.close();
+  });
+});
+
+describe('GET /api/oracle with a deployment', () => {
+  const status: OracleStatus = {
+    network: 'Preprod',
+    policyId: 'ab'.repeat(28),
+    scriptAddress: 'addr_test1wz',
+    index: '101.750000',
+    prices: { XAU: '4400.000000' },
+    publishedAt: '2026-10-13T12:00:00.000Z',
+    sequence: 3,
+    basketVersion: 1,
+    txHash: 'cd'.repeat(32),
+    explorerUrl: 'https://preprod.cardanoscan.io/transaction/x',
+    token: null,
+  };
+
+  it('serves the on-chain state and caches it', async () => {
+    let reads = 0;
+    const { app } = await setup({ oracle: { read: async () => (reads++, status) } });
+    expect((await app.inject('/api/oracle')).json()).toEqual({ configured: true, status });
+    await app.inject('/api/oracle');
+    expect(reads).toBe(1);
+  });
+
+  it('degrades gracefully when the chain is unreachable', async () => {
+    const { app } = await setup({
+      oracle: {
+        read: async () => {
+          throw new Error('koios down');
+        },
+      },
+    });
+    const res = await app.inject('/api/oracle');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ configured: true, status: null, error: 'chain unavailable' });
   });
 });
