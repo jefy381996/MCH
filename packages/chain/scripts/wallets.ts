@@ -28,7 +28,12 @@ Next: get free test ADA for both addresses from the faucet
 Then run: npm run chain:deploy
 `);
 } else {
-  console.log(
-    '\nMainnet: the admin key should live on a hardware wallet, not in a file. See docs/LAUNCH-CHECKLIST.md.\n',
-  );
+  console.log(`
+REAL CARDANO. Before sending any ADA:
+  1. Write the admin recovery phrase (secrets/admin.seed) on paper and keep it somewhere safe.
+     Whoever has those 24 words controls every MCH coin. Anyone asking for them is a scammer.
+  2. Send about 10 ADA to the admin address above.
+  3. Run: npm run chain:mint-coin
+Full guide: docs/MAINNET-COIN.md
+`);
 }

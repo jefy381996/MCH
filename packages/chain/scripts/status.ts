@@ -1,4 +1,4 @@
-/** npm run chain:status — prints the oracle feed as the chain sees it. */
+/** npm run chain:status — prints what exists on-chain for this network. */
 import { loadDeployment } from '../src/deployment.ts';
 import { createProvider } from '../src/network.ts';
 import { createOracleReader } from '../src/reader.ts';
@@ -8,7 +8,15 @@ const options = connectOptionsFromEnv();
 const deployment = loadDeployment(
   process.env.DEPLOYMENT_FILE ?? defaultDeploymentFile(options.network),
 );
-const status = await createOracleReader(deployment, createProvider(options)).read();
-console.log(
-  status ? JSON.stringify(status, null, 2) : 'No oracle UTxO found: the feed may have been closed.',
-);
+const reader = createOracleReader(deployment, createProvider(options));
+console.log(JSON.stringify({ network: reader.network, coin: reader.token }, null, 2));
+if (!reader.hasOracle) {
+  console.log('No price oracle has been created on this network yet.');
+} else {
+  const status = await reader.read();
+  console.log(
+    status
+      ? JSON.stringify({ oracle: status }, null, 2)
+      : 'Oracle not found on-chain: it may have been closed.',
+  );
+}

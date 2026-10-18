@@ -6,3 +6,4 @@ export * from './oracle-ops.ts';
 export * from './token-ops.ts';
 export * from './submitter.ts';
 export * from './reader.ts';
+export * from './deploy-flow.ts';

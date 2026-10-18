@@ -8,7 +8,7 @@ import WebSocket from 'ws';
 import { PriceEngine } from '../src/engine.ts';
 import { QuoteGuard } from '../src/guard.ts';
 import { buildServer } from '../src/server.ts';
-import type { OracleReader, OracleStatus } from '../src/oracle-reader.ts';
+import type { OracleReader, OracleStatus, TokenInfo } from '../src/oracle-reader.ts';
 import { MemoryPriceStore } from '../src/store/memory-store.ts';
 import { allAt, basket, RecordingAlerter, ScriptedSource, silentLogger } from './fixtures.ts';
 
@@ -115,7 +115,13 @@ describe('other endpoints', () => {
 
   it('reports the oracle as not configured', async () => {
     const { app } = await setup();
-    expect((await app.inject('/api/oracle')).json()).toEqual({ configured: false, status: null });
+    expect((await app.inject('/api/oracle')).json()).toEqual({
+      configured: false,
+      network: null,
+      token: null,
+      oracleDeployed: false,
+      status: null,
+    });
   });
 
   it('reports health and degrades after repeated failures', async () => {
@@ -175,38 +181,78 @@ describe('WebSocket /api/stream', () => {
 
 describe('GET /api/oracle with a deployment', () => {
   const status: OracleStatus = {
-    network: 'Preprod',
+    network: 'Mainnet',
     policyId: 'ab'.repeat(28),
-    scriptAddress: 'addr_test1wz',
+    scriptAddress: 'addr1wz',
     index: '101.750000',
     prices: { XAU: '4400.000000' },
     publishedAt: '2026-10-13T12:00:00.000Z',
     sequence: 3,
     basketVersion: 1,
     txHash: 'cd'.repeat(32),
-    explorerUrl: 'https://preprod.cardanoscan.io/transaction/x',
-    token: null,
+    explorerUrl: 'https://cardanoscan.io/transaction/x',
   };
+  const token: TokenInfo = {
+    policyId: 'ef'.repeat(28),
+    unit: `${'ef'.repeat(28)}0014df104d4348`,
+    name: 'MCH',
+    decimals: 6,
+    supply: '100000000000000',
+    explorerUrl: 'https://cardanoscan.io/token/x',
+  };
+  const reader = (over: Partial<OracleReader>): OracleReader => ({
+    network: 'Mainnet',
+    token,
+    hasOracle: true,
+    read: async () => status,
+    ...over,
+  });
 
-  it('serves the on-chain state and caches it', async () => {
+  it('serves the coin and the on-chain feed, and caches the chain read', async () => {
     let reads = 0;
-    const { app } = await setup({ oracle: { read: async () => (reads++, status) } });
-    expect((await app.inject('/api/oracle')).json()).toEqual({ configured: true, status });
+    const { app } = await setup({ oracle: reader({ read: async () => (reads++, status) }) });
+    expect((await app.inject('/api/oracle')).json()).toEqual({
+      configured: true,
+      network: 'Mainnet',
+      token,
+      oracleDeployed: true,
+      status,
+    });
     await app.inject('/api/oracle');
     expect(reads).toBe(1);
   });
 
+  it('serves the coin on its own when no oracle exists yet, without touching the chain', async () => {
+    let reads = 0;
+    const { app } = await setup({
+      oracle: reader({ hasOracle: false, read: async () => (reads++, null) }),
+    });
+    expect((await app.inject('/api/oracle')).json()).toEqual({
+      configured: true,
+      network: 'Mainnet',
+      token,
+      oracleDeployed: false,
+      status: null,
+    });
+    expect(reads).toBe(0);
+  });
+
   it('degrades gracefully when the chain is unreachable', async () => {
     const { app } = await setup({
-      oracle: {
+      oracle: reader({
         read: async () => {
           throw new Error('koios down');
         },
-      },
+      }),
     });
     const res = await app.inject('/api/oracle');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ configured: true, status: null, error: 'chain unavailable' });
+    expect(res.json()).toMatchObject({
+      configured: true,
+      token,
+      status: null,
+      error: 'chain unavailable',
+    });
   });
 });
 

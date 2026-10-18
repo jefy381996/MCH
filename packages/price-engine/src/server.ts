@@ -20,7 +20,7 @@ import {
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { PriceEngine } from './engine.ts';
-import type { OracleReader, OracleStatus } from './oracle-reader.ts';
+import type { OracleReader, OracleStatus, TokenInfo } from './oracle-reader.ts';
 import type { PriceSource } from './sources/price-source.ts';
 import type { PriceStore } from './store/price-store.ts';
 
@@ -44,6 +44,16 @@ export interface IndexPayload {
   change24hPct: number | null;
   dataSource: { id: string; label: string; isDemo: boolean };
   serverTime: string;
+}
+
+/** The chain as the website sees it: the coin, and the oracle feed once it exists. */
+export interface OraclePayload {
+  configured: boolean;
+  network: string | null;
+  token: TokenInfo | null;
+  oracleDeployed: boolean;
+  status: OracleStatus | null;
+  error?: string;
 }
 
 const RANGES_MS = {
@@ -169,18 +179,27 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
   }));
 
   let oracleCache: { at: number; value: OracleStatus | null } | undefined;
-  app.get('/api/oracle', async () => {
-    if (!o.oracle) return { configured: false, status: null };
+  app.get('/api/oracle', async (): Promise<OraclePayload> => {
+    if (!o.oracle) {
+      return { configured: false, network: null, token: null, oracleDeployed: false, status: null };
+    }
+    const base = {
+      configured: true,
+      network: o.oracle.network,
+      token: o.oracle.token,
+      oracleDeployed: o.oracle.hasOracle,
+    };
+    if (!o.oracle.hasOracle) return { ...base, status: null };
     const t = Date.now();
     if (!oracleCache || t - oracleCache.at > ORACLE_CACHE_MS) {
       try {
         oracleCache = { at: t, value: await o.oracle.read() };
       } catch (err) {
         app.log.warn({ err }, 'could not read on-chain oracle');
-        return { configured: true, status: oracleCache?.value ?? null, error: 'chain unavailable' };
+        return { ...base, status: oracleCache?.value ?? null, error: 'chain unavailable' };
       }
     }
-    return { configured: true, status: oracleCache.value };
+    return { ...base, status: oracleCache.value };
   });
 
   // Live updates: the current payload on connect, then one per new snapshot.
