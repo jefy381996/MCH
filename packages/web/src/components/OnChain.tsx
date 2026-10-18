@@ -24,10 +24,13 @@ export function OnChain({
       </p>
       {!oracle ? (
         <p className="note">Loading…</p>
-      ) : !oracle.configured ? (
+      ) : oracle.error === 'unreachable' ? (
+        <p className="note">Cannot reach the MCH server right now.</p>
+      ) : !oracle.configured || !oracle.oracleDeployed ? (
         <p className="note">
-          The oracle has not been deployed yet. Once it is, the on-chain value and a link to its
-          latest transaction appear here.
+          The price oracle has not been deployed yet. Once it is, the on-chain value and a link to
+          its latest transaction appear here.
+          {oracle.token ? ' The MCH coin itself already exists: see the token panel.' : ''}
         </p>
       ) : !status ? (
         <p className="note">

@@ -66,3 +66,23 @@ export async function mintToken(lucid: LucidEvolution, o: MintTokenOptions): Pro
   const txHash = await signed.submit();
   return { settings, policyId, metadataAddress: address, referenceUnit, fungibleUnit, txHash };
 }
+
+/**
+ * Policy ids of MCH-style coins (CIP-68 fungible, this asset name) already in
+ * a set of UTxOs. The deploy script uses this as a second line of defence
+ * against minting a second coin when the deployment record has been lost.
+ */
+export function existingCoins(
+  utxos: Array<{ assets: Record<string, bigint> }>,
+  name: string,
+): string[] {
+  const suffix = `0014df10${fromText(name)}`;
+  const policies = new Set<string>();
+  for (const u of utxos) {
+    for (const unit of Object.keys(u.assets)) {
+      if (unit.length === 56 + suffix.length && unit.endsWith(suffix))
+        policies.add(unit.slice(0, 56));
+    }
+  }
+  return [...policies];
+}

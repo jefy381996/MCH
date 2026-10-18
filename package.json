@@ -28,6 +28,7 @@
     "contracts:test": "cd contracts && aiken check",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "chain:wallets": "node packages/chain/scripts/wallets.ts",
+    "chain:mint-coin": "node packages/chain/scripts/deploy.ts --token-only",
     "chain:deploy": "node packages/chain/scripts/deploy.ts",
     "chain:submitter": "node packages/chain/scripts/submitter.ts",
     "chain:status": "node packages/chain/scripts/status.ts"

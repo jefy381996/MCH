@@ -44,11 +44,14 @@ export interface OracleStatus {
   basketVersion: number;
   txHash: string;
   explorerUrl: string;
-  token: TokenInfo | null;
 }
 
+/** The chain as served by /api/oracle: the coin, and the oracle feed once it exists. */
 export interface OraclePayload {
   configured: boolean;
+  network: string | null;
+  token: TokenInfo | null;
+  oracleDeployed: boolean;
   status: OracleStatus | null;
   error?: string;
 }

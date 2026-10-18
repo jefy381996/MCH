@@ -30,7 +30,7 @@ import {
   rotateOperator,
   walletKeyHash,
 } from '../src/oracle-ops.ts';
-import { mintToken } from '../src/token-ops.ts';
+import { existingCoins, mintToken } from '../src/token-ops.ts';
 import { createOracleReader } from '../src/reader.ts';
 
 const basket = parseBasket({
@@ -122,11 +122,11 @@ async function attemptUpdate(o: {
   return lucid
     .newTx()
     .collectFrom([utxo], oracleRedeemer.update())
-    .readFrom(await lucid.utxosByOutRef([deployment.oracle.referenceScript!]))
+    .readFrom(await lucid.utxosByOutRef([deployment.oracle!.referenceScript!]))
     .pay.ToContract(
-      deployment.oracle.address,
+      deployment.oracle!.address,
       { kind: 'inline', value: oracleDatumToCbor(next) },
-      { lovelace: utxo.assets.lovelace!, [deployment.oracle.authUnit]: 1n },
+      { lovelace: utxo.assets.lovelace!, [deployment.oracle!.authUnit]: 1n },
     )
     .addSignerKey(keyHash(o.signer))
     .validFrom(from)
@@ -142,9 +142,9 @@ describe('oracle on the emulated ledger', () => {
       sequence: 0,
       operator: keyHash(operator),
     });
-    expect(utxo.assets[deployment.oracle.authUnit]).toBe(1n);
-    expect(deployment.oracle.referenceScript).toBeDefined();
-    expect(deployment.oracle.policyId).toBe(oracleScript({ ...created(), basket }, 'Custom').hash);
+    expect(utxo.assets[deployment.oracle!.authUnit]).toBe(1n);
+    expect(deployment.oracle!.referenceScript).toBeDefined();
+    expect(deployment.oracle!.policyId).toBe(oracleScript({ ...created(), basket }, 'Custom').hash);
   });
 
   it('accepts a valid update from the operator', async () => {
@@ -199,15 +199,16 @@ describe('oracle on the emulated ledger', () => {
   });
 
   it('is readable by the backend through a keyless reader', async () => {
-    const status = await createOracleReader(deployment, emulator).read();
+    const reader = createOracleReader(deployment, emulator);
+    const status = await reader.read();
     const { utxo, datum } = await readFeed(lucid, deployment);
+    expect(reader).toMatchObject({ hasOracle: true, token: null });
     expect(status).toMatchObject({
       index: '101.750000',
       sequence: datum.sequence,
       basketVersion: 1,
       txHash: utxo.txHash,
       prices: { XAU: '4400.000000', XAG: '45.600000', XPT: '1632.000000', NI: '15500.000000' },
-      token: null,
     });
   });
 
@@ -235,9 +236,9 @@ describe('oracle on the emulated ledger', () => {
 
 function created() {
   return {
-    admin: deployment.oracle.admin,
-    seed: deployment.oracle.seed,
-    maxValidityMs: deployment.oracle.maxValidityMs,
+    admin: deployment.oracle!.admin,
+    seed: deployment.oracle!.seed,
+    maxValidityMs: deployment.oracle!.maxValidityMs,
   };
 }
 
@@ -318,6 +319,53 @@ describe('MCH token on the emulated ledger', () => {
       0n,
     );
     expect(left).toBe(3_000_000n);
+  });
+});
+
+describe('creating only the coin (what Mainnet does first)', () => {
+  it('mints with realistic metadata, records it, and is readable without an oracle', async () => {
+    const owner = generateEmulatorAccount({ lovelace: 20_000_000n });
+    const em = new Emulator([owner]);
+    const l = await Lucid(em, 'Custom');
+    l.selectWallet.fromSeed(owner.seedPhrase);
+    const description =
+      'MCH tracks the MCH Index of gold, silver, platinum and nickel. Not backed by metal and not redeemable.';
+    expect(Buffer.byteLength(description)).toBeGreaterThan(64); // Cardano chunks long text; must still work
+    const minted = await mintToken(l, {
+      name: 'MCH',
+      supply: 100_000_000n * 1_000_000n,
+      metadata: { name: 'Metal Chain', description, ticker: 'MCH', decimals: 6 },
+    });
+    em.awaitBlock(1);
+
+    const record: Deployment = {
+      network: 'Custom',
+      deployedAt: '2026-10-18T00:00:00.000Z',
+      blueprint: blueprintHashes(),
+      token: {
+        policyId: minted.policyId,
+        name: 'MCH',
+        referenceUnit: minted.referenceUnit,
+        fungibleUnit: minted.fungibleUnit,
+        supply: '100000000000000',
+        decimals: 6,
+        admin: minted.settings.admin,
+        seed: minted.settings.seed,
+        metadataAddress: minted.metadataAddress,
+        mintTx: minted.txHash,
+      },
+    };
+    const reader = createOracleReader(record, em);
+    expect(reader.hasOracle).toBe(false);
+    expect(reader.token?.unit).toBe(minted.fungibleUnit);
+    expect(await reader.read()).toBeNull();
+
+    const [ref] = await l.utxosAtWithUnit(minted.metadataAddress, minted.referenceUnit);
+    expect(cip68DatumFromCbor(ref!.datum!).metadata.description).toBe(description);
+
+    // The wallet now holds the coin, so the deploy script's second-coin guard would trigger.
+    expect(existingCoins(await l.wallet().getUtxos(), 'MCH')).toEqual([minted.policyId]);
+    expect(existingCoins(await l.wallet().getUtxos(), 'OTHER')).toEqual([]);
   });
 });
 

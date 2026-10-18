@@ -1,8 +1,11 @@
 # Launch checklist
 
-Mainnet deployment is locked (`npm run chain:deploy` refuses `Mainnet` unless
-`MCH_MAINNET_ACKNOWLEDGED=yes`). Unlock it only when every section below is
-done. This is a working list, not legal advice.
+Real Cardano is locked: `chain:mint-coin` and `chain:deploy` refuse
+`Mainnet` unless `MCH_MAINNET_ACKNOWLEDGED=yes` is set. With it set, the **coin** can be
+created on its own ([MAINNET-COIN.md](MAINNET-COIN.md)). The **price oracle**
+additionally refuses demo prices. Creating the coin is not selling it:
+everything below must be done before anyone else gets coins. This is a
+working list, not legal advice.
 
 ## 1. Legal (UK): talk to a solicitor first
 

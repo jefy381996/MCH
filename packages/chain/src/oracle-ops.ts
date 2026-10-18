@@ -16,7 +16,7 @@ import {
   type OracleSettings,
   type OutRef,
 } from './codec.ts';
-import { oracleSettingsOf, type Deployment } from './deployment.ts';
+import { oracleSettingsOf, requireOracle, type Deployment } from './deployment.ts';
 
 export const AUTH_TOKEN_NAME = 'MCH-ORACLE';
 /** ADA kept in the feed UTxO. Covers the ledger's minimum for an output with a datum. */
@@ -139,7 +139,8 @@ export interface Feed {
 
 /** The single UTxO carrying the auth NFT, and its decoded datum. */
 export async function readFeed(lucid: LucidEvolution, deployment: Deployment): Promise<Feed> {
-  const utxos = await lucid.utxosAtWithUnit(deployment.oracle.address, deployment.oracle.authUnit);
+  const oracle = requireOracle(deployment);
+  const utxos = await lucid.utxosAtWithUnit(oracle.address, oracle.authUnit);
   if (utxos.length !== 1) {
     throw new Error(`expected exactly one oracle UTxO, found ${utxos.length}`);
   }
@@ -153,7 +154,7 @@ async function withScript(
   deployment: Deployment,
   tx: ReturnType<LucidEvolution['newTx']>,
 ) {
-  const ref = deployment.oracle.referenceScript;
+  const ref = requireOracle(deployment).referenceScript;
   if (ref) return tx.readFrom(await lucid.utxosByOutRef([ref]));
   return tx.attach.Script(oracleScript(oracleSettingsOf(deployment), networkOf(lucid)).script);
 }
@@ -169,6 +170,7 @@ export async function publishUpdate(
   deployment: Deployment,
   update: { pricesMicro: bigint[]; now: number },
 ): Promise<PublishResult> {
+  const oracle = requireOracle(deployment);
   const basket = oracleSettingsOf(deployment).basket;
   const operator = await walletKeyHash(lucid);
   const { utxo, datum: current } = await readFeed(lucid, deployment);
@@ -189,9 +191,9 @@ export async function publishUpdate(
     .newTx()
     .collectFrom([utxo], oracleRedeemer.update())
     .pay.ToContract(
-      deployment.oracle.address,
+      oracle.address,
       { kind: 'inline', value: oracleDatumToCbor(next) },
-      { lovelace: utxo.assets.lovelace!, [deployment.oracle.authUnit]: 1n },
+      { lovelace: utxo.assets.lovelace!, [oracle.authUnit]: 1n },
     )
     .addSignerKey(operator)
     .validFrom(update.now - VALID_BEFORE_MS)
@@ -205,15 +207,16 @@ export async function rotateOperator(
   deployment: Deployment,
   newOperator: string,
 ): Promise<string> {
+  const oracle = requireOracle(deployment);
   const admin = await walletKeyHash(lucid);
   const { utxo, datum } = await readFeed(lucid, deployment);
   const tx = lucid
     .newTx()
     .collectFrom([utxo], oracleRedeemer.rotateOperator(newOperator))
     .pay.ToContract(
-      deployment.oracle.address,
+      oracle.address,
       { kind: 'inline', value: oracleDatumToCbor({ ...datum, operator: newOperator }) },
-      { lovelace: utxo.assets.lovelace!, [deployment.oracle.authUnit]: 1n },
+      { lovelace: utxo.assets.lovelace!, [oracle.authUnit]: 1n },
     )
     .addSignerKey(admin);
   return signAndSubmit(await withScript(lucid, deployment, tx));
@@ -221,12 +224,13 @@ export async function rotateOperator(
 
 /** Permanently shuts the feed down and burns the auth NFT. Admin wallet. */
 export async function closeOracle(lucid: LucidEvolution, deployment: Deployment): Promise<string> {
+  const oracle = requireOracle(deployment);
   const admin = await walletKeyHash(lucid);
   const { utxo } = await readFeed(lucid, deployment);
   const tx = lucid
     .newTx()
     .collectFrom([utxo], oracleRedeemer.close())
-    .mintAssets({ [deployment.oracle.authUnit]: -1n }, oracleRedeemer.destroy())
+    .mintAssets({ [oracle.authUnit]: -1n }, oracleRedeemer.destroy())
     .addSignerKey(admin);
   return signAndSubmit(await withScript(lucid, deployment, tx));
 }

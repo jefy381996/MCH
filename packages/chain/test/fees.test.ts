@@ -74,9 +74,9 @@ describe('oracle update fees', () => {
         .newTx()
         .collectFrom([utxo], oracleRedeemer.update())
         .pay.ToContract(
-          deployment.oracle.address,
+          deployment.oracle!.address,
           { kind: 'inline', value: oracleDatumToCbor({ ...datum, sequence: 1, publishedAt: now }) },
-          { lovelace: utxo.assets.lovelace!, [deployment.oracle.authUnit]: 1n },
+          { lovelace: utxo.assets.lovelace!, [deployment.oracle!.authUnit]: 1n },
         )
         .addSignerKey(opHash)
         .validFrom(now - 60_000)
@@ -86,7 +86,7 @@ describe('oracle update fees', () => {
       BigInt(tx.toTransaction().body().fee());
     const withRef = await fee(
       await build()
-        .readFrom(await lucid.utxosByOutRef([deployment.oracle.referenceScript!]))
+        .readFrom(await lucid.utxosByOutRef([deployment.oracle!.referenceScript!]))
         .complete(),
     );
     const attached = await fee(

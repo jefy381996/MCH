@@ -18,8 +18,8 @@ type WalletState =
   | { kind: 'error'; message: string };
 
 export function Token({ oracle }: { oracle: OraclePayload | null }) {
-  const token = oracle?.status?.token ?? null;
-  const network = oracle?.status?.network;
+  const token = oracle?.token ?? null;
+  const network = oracle?.network ?? undefined;
   const wallets = useMemo<DetectedWallet[]>(() => detectWallets(), []);
   const [wallet, setWallet] = useState<WalletState>({ kind: 'idle' });
 

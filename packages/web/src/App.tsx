@@ -25,14 +25,23 @@ export function App() {
     const loadOracle = () =>
       getJSON<OraclePayload>('/api/oracle')
         .then(setOracle)
-        .catch(() => setOracle({ configured: true, status: null, error: 'unreachable' }));
+        .catch(() =>
+          setOracle({
+            configured: true,
+            network: null,
+            token: null,
+            oracleDeployed: false,
+            status: null,
+            error: 'unreachable',
+          }),
+        );
     void loadOracle();
     const timer = window.setInterval(loadOracle, ORACLE_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, []);
 
   const isDemo = data?.dataSource.isDemo ?? basket?.basket.isDemo ?? false;
-  const network = oracle?.status?.network;
+  const network = oracle?.network;
   const networkLabel = network
     ? network === 'Mainnet'
       ? 'Cardano'

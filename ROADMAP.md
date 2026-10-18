@@ -64,6 +64,8 @@ new minting design for B or C, because today's supply is fixed forever.
 ## Next steps, in order
 
 1. **You:** run it locally (`npm run dev`) and tell me what to change.
+   To create the coin on real Cardano now, follow [docs/MAINNET-COIN.md](docs/MAINNET-COIN.md)
+   (coin only; the oracle waits for real prices).
 2. **You:** confirm weights (25% each?) and token supply (100M?).
 3. **You + me:** deploy to Preprod testnet (wallets, faucet, `chain:deploy`).
 4. **You:** book a UK solicitor with crypto/FCA experience; take section 1 of the launch checklist.

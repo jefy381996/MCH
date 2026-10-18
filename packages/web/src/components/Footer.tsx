@@ -2,7 +2,7 @@ export function Footer({ isDemo }: { isDemo: boolean }) {
   return (
     <footer>
       <p>
-        {isDemo ? 'This is a testnet preview running on demo data. ' : ''}MCH tokens are not offered
+        {isDemo ? 'Prices on this page are simulated demo data. ' : ''}MCH tokens are not offered
         for sale on this site. Nothing here is financial advice or an offer to buy or sell anything.
       </p>
       <p>
