@@ -2,12 +2,10 @@
 import { loadDeployment } from '../src/deployment.ts';
 import { createProvider } from '../src/network.ts';
 import { createOracleReader } from '../src/reader.ts';
-import { connectOptionsFromEnv, defaultDeploymentFile } from './env.ts';
+import { connectOptionsFromEnv, deploymentFileFromEnv } from './env.ts';
 
 const options = connectOptionsFromEnv();
-const deployment = loadDeployment(
-  process.env.DEPLOYMENT_FILE ?? defaultDeploymentFile(options.network),
-);
+const deployment = loadDeployment(deploymentFileFromEnv(options.network));
 const reader = createOracleReader(deployment, createProvider(options));
 console.log(JSON.stringify({ network: reader.network, coin: reader.token }, null, 2));
 if (!reader.hasOracle) {

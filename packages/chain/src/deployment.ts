@@ -14,7 +14,15 @@ export interface OracleDeployment {
   maxValidityMs: number;
   referenceScript?: OutRef;
   createTx: string;
+  /** 'submitted' until the network has confirmed it. Absent means confirmed. */
+  status?: DeployStatus;
 }
+
+/**
+ * Records are written the moment a transaction is signed, before it is sent,
+ * so nothing that reaches the chain can ever go unrecorded.
+ */
+export type DeployStatus = 'submitted' | 'confirmed';
 
 export interface TokenDeployment {
   policyId: string;
@@ -27,6 +35,8 @@ export interface TokenDeployment {
   seed: OutRef;
   metadataAddress: string;
   mintTx: string;
+  /** 'submitted' until the network has confirmed it. Absent means confirmed. */
+  status?: DeployStatus;
 }
 
 /**
@@ -52,33 +62,43 @@ export function requireOracle(d: Deployment): OracleDeployment {
   return d.oracle;
 }
 
+/** What to do with each part: create it, check on an earlier unconfirmed attempt, or leave it. */
+export type PartAction = 'create' | 'resume' | 'none';
+
 export type DeployPlan =
-  { ok: true; mintToken: boolean; createOracle: boolean } | { ok: false; reason: string };
+  { ok: true; token: PartAction; oracle: PartAction } | { ok: false; reason: string };
+
+function actionFor(part: { status?: DeployStatus } | undefined): PartAction {
+  if (!part) return 'create';
+  return part.status === 'submitted' ? 'resume' : 'none';
+}
 
 /**
- * Decides what a deploy run may do, given what already exists. Its main job
- * is to make a second coin impossible by accident: every run of the mint
- * creates a brand-new, different coin, so once one exists the answer is no.
+ * Decides what a deploy run may do, given the record of what already exists.
+ * Its main job is to make a second coin impossible by accident: a recorded,
+ * confirmed coin is never minted again, and an unconfirmed one is only ever
+ * checked on (and, if it provably never landed, resent with the same seed,
+ * which can only produce that same coin).
  */
 export function planDeployment(existing: Deployment | null, o: { tokenOnly: boolean }): DeployPlan {
-  const hasToken = !!existing?.token;
-  const hasOracle = !!existing?.oracle;
+  const token = actionFor(existing?.token);
   if (o.tokenOnly) {
-    if (hasToken) {
+    if (token === 'none') {
       return {
         ok: false,
         reason: `The MCH coin already exists (policy ${existing!.token!.policyId}). Creating it again would make a second, different coin.`,
       };
     }
-    return { ok: true, mintToken: true, createOracle: false };
+    return { ok: true, token, oracle: 'none' };
   }
-  if (hasToken && hasOracle) {
+  const oracle = actionFor(existing?.oracle);
+  if (token === 'none' && oracle === 'none') {
     return {
       ok: false,
       reason: 'Both the coin and the oracle already exist. There is nothing to deploy.',
     };
   }
-  return { ok: true, mintToken: !hasToken, createOracle: !hasOracle };
+  return { ok: true, token, oracle };
 }
 
 export function loadDeployment(path: string): Deployment {

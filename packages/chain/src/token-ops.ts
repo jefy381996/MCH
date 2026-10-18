@@ -3,6 +3,7 @@ import { tokenScript } from './blueprint.ts';
 import {
   cip68DatumToCbor,
   tokenRedeemer,
+  type OutRef,
   type TokenMetadata,
   type TokenSettings,
 } from './codec.ts';
@@ -16,8 +17,12 @@ export interface MintTokenOptions {
   metadata: TokenMetadata;
   /** Where the supply goes. Defaults to the admin wallet. */
   recipient?: string;
-  /** Skip this UTxO when picking the seed (e.g. one already spent by a pending tx). */
-  avoid?: { txHash: string; outputIndex: number }[];
+  /**
+   * The wallet UTxO the mint must consume. It fixes the coin's identity (its
+   * policy id), so resending with the same seed can only ever produce the same
+   * coin, never a second one. Defaults to the wallet's first UTxO.
+   */
+  seed?: OutRef;
 }
 
 export interface MintedToken {
@@ -29,16 +34,33 @@ export interface MintedToken {
   txHash: string;
 }
 
-/** Mints the whole, fixed MCH supply in one go. Run with the admin wallet selected. */
-export async function mintToken(lucid: LucidEvolution, o: MintTokenOptions): Promise<MintedToken> {
+/** A signed mint that has not been sent yet. Its txHash is already final. */
+export interface PreparedMint extends MintedToken {
+  submit(): Promise<string>;
+}
+
+/**
+ * Builds and signs the mint of the whole, fixed MCH supply, without sending
+ * it, so the caller can record it first. Run with the admin wallet selected.
+ */
+export async function prepareMint(
+  lucid: LucidEvolution,
+  o: MintTokenOptions,
+): Promise<PreparedMint> {
   const network = lucid.config().network;
   if (!network) throw new Error('Lucid has no network configured');
   const admin = await walletKeyHash(lucid);
-  const avoid = new Set((o.avoid ?? []).map((r) => `${r.txHash}#${r.outputIndex}`));
-  const seed = (await lucid.wallet().getUtxos()).find(
-    (u) => !avoid.has(`${u.txHash}#${u.outputIndex}`),
-  );
-  if (!seed) throw new Error('the admin wallet has no spendable UTxO to use as the mint seed');
+  const utxos = await lucid.wallet().getUtxos();
+  const seed = o.seed
+    ? utxos.find((u) => u.txHash === o.seed!.txHash && u.outputIndex === o.seed!.outputIndex)
+    : utxos[0];
+  if (!seed) {
+    throw new Error(
+      o.seed
+        ? 'the recorded seed UTxO is no longer in the wallet (it has been spent)'
+        : 'the admin wallet has no spendable UTxO to use as the mint seed',
+    );
+  }
   const settings: TokenSettings = {
     admin,
     seed: { txHash: seed.txHash, outputIndex: seed.outputIndex },
@@ -63,8 +85,22 @@ export async function mintToken(lucid: LucidEvolution, o: MintTokenOptions): Pro
     .pay.ToAddress(recipient, { [fungibleUnit]: o.supply })
     .addSignerKey(admin);
   const signed = await (await tx.complete()).sign.withWallet().complete();
-  const txHash = await signed.submit();
-  return { settings, policyId, metadataAddress: address, referenceUnit, fungibleUnit, txHash };
+  return {
+    settings,
+    policyId,
+    metadataAddress: address,
+    referenceUnit,
+    fungibleUnit,
+    txHash: signed.toHash(),
+    submit: () => signed.submit(),
+  };
+}
+
+/** Builds, signs and sends the mint in one go. */
+export async function mintToken(lucid: LucidEvolution, o: MintTokenOptions): Promise<MintedToken> {
+  const { submit, ...minted } = await prepareMint(lucid, o);
+  const sent = await submit();
+  return { ...minted, txHash: sent };
 }
 
 /**

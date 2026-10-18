@@ -4,15 +4,15 @@
 
 ## Decisions so far
 
-| Question     | Decision                                                            | Notes                                                                                    |
-| ------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Blockchain   | **Cardano**, contracts in **Aiken**                                 |                                                                                          |
-| Token model  | **A: tracker token**                                                | Fixed supply, not backed, not redeemable. B or C can be added later; see below           |
-| Basket       | **Gold, silver, platinum, nickel**                                  | Magnesium and copper dropped                                                             |
-| Weights      | **25% each** _(assumed, please confirm)_                            | One line in `config/basket.json`                                                         |
-| Data budget  | **$0 now** (demo data), **monthly provider later**                  |                                                                                          |
-| Product      | **Real product, UK**                                                | Legal work is on the critical path: [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md) |
-| Token supply | **100,000,000 MCH, 6 decimals** _(testnet default, please confirm)_ | Set at deploy time                                                                       |
+| Question     | Decision                                                    | Notes                                                                                    |
+| ------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Blockchain   | **Cardano**, contracts in **Aiken**                         |                                                                                          |
+| Token model  | **A: tracker token**                                        | Fixed supply, not backed, not redeemable. B or C can be added later; see below           |
+| Basket       | **Gold, silver, platinum, nickel**                          | Magnesium and copper dropped                                                             |
+| Weights      | **25% each** _(assumed, please confirm)_                    | One line in `config/basket.json`                                                         |
+| Data budget  | **$0 now** (demo data), **monthly provider later**          |                                                                                          |
+| Product      | **Real product, UK**                                        | Legal work is on the critical path: [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md) |
+| Token supply | **100,000,000 MCH, 6 decimals** _(default, please confirm)_ | **Permanent** once the coin is created on real Cardano                                   |
 
 ## What the basket change means
 
@@ -36,12 +36,12 @@ new minting design for B or C, because today's supply is fixed forever.
 
 ## Status
 
-| Phase | What                                                         | Status                                                                                                                                                                                 |
-| ----- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Index maths, price engine, website                           | **Built.** Runs locally on demo data: `npm run dev`                                                                                                                                    |
-| 2     | Oracle and MCH token contracts, deploy and submitter tooling | **Built and tested** on an emulated Cardano ledger. Testnet deployment is waiting on you: wallets and faucet, about 15 minutes, see [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
-| 3     | Make the token price follow the index (Model B or C)         | Not started: only if you choose B or C                                                                                                                                                 |
-| 4     | Real data, legal, audit, mainnet                             | Blocked on the checklist: [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md)                                                                                                         |
+| Phase | What                                                         | Status                                                                                                                                                                                                 |
+| ----- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Index maths, price engine, website                           | **Built.** Runs locally on demo data: `npm run dev`                                                                                                                                                    |
+| 2     | Oracle and MCH token contracts, deploy and submitter tooling | **Built and tested** on an emulated Cardano ledger. Testnet deployment is waiting on you: wallets and faucet, about 15 minutes, see [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)                 |
+| 3     | Make the token price follow the index (Model B or C)         | Not started: only if you choose B or C                                                                                                                                                                 |
+| 4     | Coin on real Cardano; real data, legal, audit                | **The coin can be created now:** [docs/MAINNET-COIN.md](docs/MAINNET-COIN.md). The oracle waits for real prices; selling waits for the checklist: [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md) |
 
 ### Built so far
 
@@ -64,11 +64,13 @@ new minting design for B or C, because today's supply is fixed forever.
 ## Next steps, in order
 
 1. **You:** run it locally (`npm run dev`) and tell me what to change.
-   To create the coin on real Cardano now, follow [docs/MAINNET-COIN.md](docs/MAINNET-COIN.md)
-   (coin only; the oracle waits for real prices).
-2. **You:** confirm weights (25% each?) and token supply (100M?).
-3. **You + me:** deploy to Preprod testnet (wallets, faucet, `chain:deploy`).
+2. **You:** confirm weights (25% each?) and the coin's supply (100M, 6 decimals?).
+   The supply is permanent once the coin exists.
+3. **You:** create the coin on real Cardano with [docs/MAINNET-COIN.md](docs/MAINNET-COIN.md)
+   (coin only; the oracle waits for real prices), or try the test network first
+   ([docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)).
 4. **You:** book a UK solicitor with crypto/FCA experience; take section 1 of the launch checklist.
-5. **You + me:** choose a data provider; I implement and test its adapter.
-6. **Me:** host the testnet version publicly (needs a hosting account and a domain).
-7. **Later:** security audit, mainnet, liquidity. Decide whether to move to Model B or C.
+   Don't sell or promote the coin before then.
+5. **You + me:** choose a data provider; I implement and test its adapter, then add the oracle.
+6. **Me:** host the website publicly (needs a hosting account and a domain).
+7. **Later:** security audit, liquidity. Moving to Model B or C would mean a new, different coin.

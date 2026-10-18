@@ -4,7 +4,7 @@ Written for someone new to all of this. Each step says what it does and why.
 
 ## 1. Run the website on your computer
 
-1. Install **Node.js 22 or newer** from https://nodejs.org (the "LTS" button).
+1. Install **Node.js 22.18 or newer** from https://nodejs.org (the "LTS" button).
 2. Get the code: `git clone https://github.com/jefy381996/MCH.git`, then `cd MCH`.
 3. Install the project's libraries: `npm install` (takes a minute).
 4. Start everything: `npm run dev`.
@@ -97,7 +97,9 @@ Run the oracle submitter as a **separate** service from the same image
 a secret. Keeping the signing key out of the public web server limits the
 damage if the website is ever compromised.
 
-## 4. Before going live for real
+## 4. Creating the coin on real Cardano
 
-Stop here until the items in [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md) are
-done. Mainnet deployment is deliberately locked until then.
+The coin can be created on its own, before there is a real price feed:
+follow [MAINNET-COIN.md](MAINNET-COIN.md). The price oracle refuses to go on
+real Cardano with demo prices. Selling or promoting the coin has to wait
+for the items in [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md).
