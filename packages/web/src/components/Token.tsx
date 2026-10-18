@@ -89,6 +89,10 @@ export function Token({ oracle }: { oracle: OraclePayload | null }) {
             </a>
           </dd>
         </dl>
+      ) : oracle?.error === 'unreachable' ? (
+        <p className="note" style={{ marginTop: 0 }}>
+          Cannot reach the MCH server right now.
+        </p>
       ) : (
         <p className="note" style={{ marginTop: 0 }}>
           The token has not been minted yet.

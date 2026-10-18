@@ -54,9 +54,10 @@ does FCA cryptoasset work and take these questions:
 
 ## 4. Token decisions
 
-- [ ] Total supply and decimals (testnet default: 100,000,000 MCH, 6 decimals).
+- [ ] Total supply and decimals: chosen when the coin is created, and permanent after that.
 - [ ] Who receives the supply and how it is distributed. Write it down publicly.
-- [ ] Logo hosted permanently (IPFS) and set in `TOKEN_LOGO`.
+- [ ] Logo hosted permanently (IPFS). Set `TOKEN_LOGO` before creating the coin, or add it afterwards
+      with a metadata-update command (not written yet: ask for it).
 - [ ] Whether to _also_ register metadata in the Cardano Token Registry for
       older wallets.
 

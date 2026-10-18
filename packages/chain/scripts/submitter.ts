@@ -9,11 +9,11 @@ import { loadDeployment } from '../src/deployment.ts';
 import { publishUpdate, readFeed } from '../src/oracle-ops.ts';
 import { loadSeed } from '../src/secrets.ts';
 import { DEFAULT_POLICY, OracleSubmitter } from '../src/submitter.ts';
-import { connectOptionsFromEnv, connectOrExit, defaultDeploymentFile, fail } from './env.ts';
+import { connectOptionsFromEnv, connectOrExit, deploymentFileFromEnv, fail } from './env.ts';
 
 const env = process.env;
 const options = connectOptionsFromEnv();
-const deployment = loadDeployment(env.DEPLOYMENT_FILE ?? defaultDeploymentFile(options.network));
+const deployment = loadDeployment(deploymentFileFromEnv(options.network));
 if (!deployment.oracle) {
   fail('This deployment has no price oracle yet, so there is nothing to keep up to date.');
 }

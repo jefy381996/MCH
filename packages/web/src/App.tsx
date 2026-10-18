@@ -25,15 +25,20 @@ export function App() {
     const loadOracle = () =>
       getJSON<OraclePayload>('/api/oracle')
         .then(setOracle)
+        // One failed refresh must not wipe what is already known (e.g. that the coin exists).
         .catch(() =>
-          setOracle({
-            configured: true,
-            network: null,
-            token: null,
-            oracleDeployed: false,
-            status: null,
-            error: 'unreachable',
-          }),
+          setOracle((previous) =>
+            previous
+              ? { ...previous, error: 'unreachable' }
+              : {
+                  configured: true,
+                  network: null,
+                  token: null,
+                  oracleDeployed: false,
+                  status: null,
+                  error: 'unreachable',
+                },
+          ),
         );
     void loadOracle();
     const timer = window.setInterval(loadOracle, ORACLE_REFRESH_MS);

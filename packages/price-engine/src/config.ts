@@ -1,7 +1,12 @@
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 const fromHere = (relative: string) => fileURLToPath(new URL(relative, import.meta.url));
+
+/** The repository root. Relative paths in .env are read from here, whatever folder npm runs in. */
+export const REPO_ROOT = fromHere('../../../');
+const repoPath = z.string().transform((p) => resolve(REPO_ROOT, p));
 
 const schema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(8080),
@@ -13,7 +18,7 @@ const schema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
-  BASKET_FILE: z.string().default(fromHere('../../../config/basket.json')),
+  BASKET_FILE: repoPath.default(fromHere('../../../config/basket.json')),
 
   /** Only "demo" exists until a paid provider is chosen; see docs/DATA-PROVIDERS.md. */
   PRICE_SOURCE: z.enum(['demo']).default('demo'),
@@ -28,14 +33,14 @@ const schema = z.object({
   /** Unset: prices are kept in memory and lost on restart. Fine for trying it out. */
   DATABASE_URL: z.string().optional(),
 
-  WEB_DIST_DIR: z.string().default(fromHere('../../web/dist')),
+  WEB_DIST_DIR: repoPath.default(fromHere('../../web/dist')),
   /** Comma-separated origins allowed to call the API from a browser. Same-origin always works. */
   CORS_ORIGINS: z.string().optional(),
   /** Slack-compatible incoming webhook for operational alerts. */
   ALERT_WEBHOOK_URL: z.string().optional(),
 
   /** JSON written by `npm run chain:deploy`; enables the on-chain oracle panel. */
-  ORACLE_DEPLOYMENT_FILE: z.string().optional(),
+  ORACLE_DEPLOYMENT_FILE: repoPath.optional(),
   CARDANO_PROVIDER: z.enum(['koios', 'blockfrost']).default('koios'),
   BLOCKFROST_PROJECT_ID: z.string().optional(),
 });

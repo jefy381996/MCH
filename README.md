@@ -3,14 +3,15 @@
 A live index of four metals (gold, silver, platinum and nickel), a website
 that shows it, and a Cardano token and oracle that put it on-chain.
 
-> **Status: testnet preview on demo data.** Everything below runs today on
-> simulated prices and Cardano's test network. Real prices need a data
-> licence, and a public launch needs the legal and security work in
-> [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md).
+> **Status: preview on demo data.** The website and backend run today on
+> simulated prices. The MCH coin can be created on real Cardano now
+> ([docs/MAINNET-COIN.md](docs/MAINNET-COIN.md)); the price oracle waits for
+> a real data feed. Selling or promoting the coin needs the legal and
+> security work in [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md).
 
 ## Try it (5 minutes)
 
-You need [Node.js 22](https://nodejs.org) or newer. Nothing else.
+You need [Node.js](https://nodejs.org) 22.18 or newer (the LTS download is fine). Nothing else.
 
 ```bash
 npm install
@@ -52,18 +53,19 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Commands
 
-| Command                          | What it does                                                        |
-| -------------------------------- | ------------------------------------------------------------------- |
-| `npm run dev`                    | Backend and website with live reload                                |
-| `npm run build` then `npm start` | Production mode: one process serving API and website on port 8080   |
-| `npm test`                       | All TypeScript tests (set `TEST_DATABASE_URL` to include Postgres)  |
-| `npm run check`                  | Formatting, lint, types and tests: what CI runs                     |
-| `npm run contracts:test`         | Aiken contract tests (needs [Aiken](https://aiken-lang.org) 1.1.24) |
-| `npm run chain:wallets`          | Create the admin and operator wallets for the testnet               |
-| `npm run chain:deploy`           | Put the oracle and the token on Cardano                             |
-| `npm run chain:submitter`        | Keep the on-chain index in step with the live one                   |
-| `npm run chain:status`           | Show what the chain currently says                                  |
-| `docker compose up --build`      | Website, API and Postgres in containers                             |
+| Command                          | What it does                                                                             |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run dev`                    | Backend and website with live reload                                                     |
+| `npm run build` then `npm start` | Production mode: one process serving API and website on port 8080                        |
+| `npm test`                       | All TypeScript tests (set `TEST_DATABASE_URL` to include Postgres)                       |
+| `npm run check`                  | Formatting, lint, types and tests: what CI runs                                          |
+| `npm run contracts:test`         | Aiken contract tests (needs [Aiken](https://aiken-lang.org) 1.1.24)                      |
+| `npm run chain:wallets`          | Create the admin and operator wallets                                                    |
+| `npm run chain:mint-coin`        | Create only the MCH coin (on real Cardano: [docs/MAINNET-COIN.md](docs/MAINNET-COIN.md)) |
+| `npm run chain:deploy`           | Create whatever is missing: the coin and/or the price oracle                             |
+| `npm run chain:submitter`        | Keep the on-chain index in step with the live one                                        |
+| `npm run chain:status`           | Show what the chain currently says                                                       |
+| `docker compose up --build`      | Website, API and Postgres in containers                                                  |
 
 ## The honest summary
 

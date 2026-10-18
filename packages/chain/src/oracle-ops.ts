@@ -60,6 +60,8 @@ export interface CreateOracleOptions {
   maxValidityMs?: number;
   /** Also publish the script as a reference script (cheaper updates later). */
   publishReferenceScript?: boolean;
+  /** The wallet UTxO to consume; fixes the oracle's identity. Defaults to the first. */
+  seed?: OutRef;
 }
 
 export interface CreatedOracle {
@@ -71,15 +73,29 @@ export interface CreatedOracle {
   genesis: OracleDatum;
 }
 
-/** Creates the feed. Run with the admin wallet selected. */
-export async function createOracle(
+/** A signed oracle creation that has not been sent yet. Its txHash is already final. */
+export interface PreparedOracle extends CreatedOracle {
+  submit(): Promise<string>;
+}
+
+/** Builds and signs the oracle creation without sending it. Admin wallet. */
+export async function prepareOracle(
   lucid: LucidEvolution,
   o: CreateOracleOptions,
-): Promise<CreatedOracle> {
+): Promise<PreparedOracle> {
   const network = networkOf(lucid);
   const admin = await walletKeyHash(lucid);
-  const [seed] = await lucid.wallet().getUtxos();
-  if (!seed) throw new Error('the admin wallet is empty; fund it from the testnet faucet first');
+  const utxos = await lucid.wallet().getUtxos();
+  const seed = o.seed
+    ? utxos.find((u) => u.txHash === o.seed!.txHash && u.outputIndex === o.seed!.outputIndex)
+    : utxos[0];
+  if (!seed) {
+    throw new Error(
+      o.seed
+        ? 'the recorded seed UTxO is no longer in the wallet (it has been spent)'
+        : 'the admin wallet is empty; fund it first',
+    );
+  }
   const settings: OracleSettings = {
     admin,
     seed: { txHash: seed.txHash, outputIndex: seed.outputIndex },
@@ -118,8 +134,26 @@ export async function createOracle(
       script,
     );
   }
-  const txHash = await signAndSubmit(tx);
-  return { settings, policyId, address, authUnit: unit, txHash, genesis };
+  const signed = await (await tx.complete()).sign.withWallet().complete();
+  return {
+    settings,
+    policyId,
+    address,
+    authUnit: unit,
+    txHash: signed.toHash(),
+    genesis,
+    submit: () => signed.submit(),
+  };
+}
+
+/** Creates the feed: build, sign and send. Run with the admin wallet selected. */
+export async function createOracle(
+  lucid: LucidEvolution,
+  o: CreateOracleOptions,
+): Promise<CreatedOracle> {
+  const { submit, ...created } = await prepareOracle(lucid, o);
+  const sent = await submit();
+  return { ...created, txHash: sent };
 }
 
 /** After a create transaction confirms, finds where its reference script landed. */

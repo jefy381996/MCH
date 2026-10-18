@@ -9,14 +9,19 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { fileURLToPath } from 'node:url';
 import { paymentCredentialOf, walletFromSeed } from '@lucid-evolution/lucid';
 import { parseBasket, snapshotFromDTO, type IndexSnapshotDTO } from '@mch/index-core';
 import { runDeploy } from '../src/deploy-flow.ts';
 import { loadDeployment, planDeployment, saveDeployment } from '../src/deployment.ts';
-import { explorerTokenUrl } from '../src/network.ts';
+import { explorerTokenUrl, explorerTxUrl } from '../src/network.ts';
 import { loadSeed } from '../src/secrets.ts';
-import { connectOptionsFromEnv, connectOrExit, defaultDeploymentFile, fail } from './env.ts';
+import {
+  connectOptionsFromEnv,
+  connectOrExit,
+  deploymentFileFromEnv,
+  fail,
+  repoPath,
+} from './env.ts';
 
 const env = process.env;
 const args = new Set(process.argv.slice(2));
@@ -27,9 +32,8 @@ const allowSecondCoin = args.has('--allow-second-coin');
 const options = connectOptionsFromEnv();
 const { network } = options;
 const isMainnet = network === 'Mainnet';
-const deploymentFile = env.DEPLOYMENT_FILE ?? defaultDeploymentFile(network);
-const basketFile =
-  env.BASKET_FILE ?? fileURLToPath(new URL('../../../config/basket.json', import.meta.url));
+const deploymentFile = deploymentFileFromEnv(network);
+const basketFile = env.BASKET_FILE ? repoPath(env.BASKET_FILE) : repoPath('config/basket.json');
 const basket = parseBasket(JSON.parse(readFileSync(basketFile, 'utf8')));
 
 // ---- what are we allowed to do? (all checked before touching the network) ----
@@ -47,14 +51,17 @@ if (isMainnet && env.MCH_MAINNET_ACKNOWLEDGED !== 'yes') {
     'Real Cardano (Mainnet) is locked. Read docs/MAINNET-COIN.md, then set MCH_MAINNET_ACKNOWLEDGED=yes in .env.',
   );
 }
-if (isMainnet && plan.createOracle && basket.isDemo) {
+if (isMainnet && plan.oracle === 'create' && basket.isDemo) {
   fail(
     'The price oracle cannot go on Mainnet with demo prices.\n' +
       '  Create only the coin with `npm run chain:mint-coin`; add the oracle once real prices are connected.',
   );
 }
 if (isMainnet && !assumeYes && !process.stdin.isTTY) {
-  fail('Mainnet needs a typed confirmation: run this in a terminal (or pass --yes).');
+  fail(
+    'This needs you to type a confirmation, and this window cannot take typing.\n' +
+      '  Run it in Command Prompt (Windows) or Terminal (Mac).',
+  );
 }
 
 // ---- coin settings: the supply and asset name are permanent ----
@@ -71,6 +78,14 @@ const wholeSupply = wholeNumber('TOKEN_SUPPLY', '100000000');
 const supply = wholeSupply * 10n ** BigInt(decimals);
 if (supply <= 0n || supply > 2n ** 63n - 1n) {
   fail('TOKEN_SUPPLY x 10^TOKEN_DECIMALS must be above 0 and below 9.2 x 10^18 (a Cardano limit).');
+}
+// CIP-68 requires the logo to be a URI with one of these schemes; wallets drop anything else.
+const logo = env.TOKEN_LOGO?.trim();
+if (logo && !/^(https|ipfs|ar):\/\/\S+$|^data:image\/\S+$/.test(logo)) {
+  fail(
+    'TOKEN_LOGO must be a link starting with https://, ipfs:// or ar:// (no spaces).\n' +
+      '  Leave it empty for now if you do not have one: it can be added later.',
+  );
 }
 
 let adminSeed: string;
@@ -103,7 +118,7 @@ const outcome = await runDeploy({
       ticker: env.TOKEN_TICKER ?? 'MCH',
       decimals,
       url: env.TOKEN_URL,
-      logo: env.TOKEN_LOGO,
+      logo: logo || undefined,
     },
   },
   async confirm(summary) {
@@ -120,10 +135,27 @@ const outcome = await runDeploy({
   save: (d) => saveDeployment(deploymentFile, d),
   log: (line) => console.log(line),
   now: () => Date.now(),
+  sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
 });
 
 if (outcome.kind === 'refused') fail(outcome.reason);
 if (outcome.kind === 'cancelled') fail('Stopped. Nothing was sent.');
+if (outcome.kind === 'pending') {
+  const what = outcome.what === 'coin' ? 'The MCH coin' : 'The price oracle';
+  const again = tokenOnly ? 'npm run chain:mint-coin' : 'npm run chain:deploy';
+  console.log(
+    outcome.sendError
+      ? `\n⏳ Sending reported a problem: ${outcome.sendError}\n   It may or may not have reached the network.`
+      : `\n⏳ ${what} was sent, but the network has not confirmed it yet.`,
+  );
+  console.log(`   Transaction: ${explorerTxUrl(network, outcome.txHash)}`);
+  console.log('   The record is saved, so nothing is lost. Do not buy more ADA.');
+  console.log(
+    `   Wait 10 minutes, then run \`${again}\` again. It checks the network and finishes the job;`,
+  );
+  console.log('   it will NOT create a second coin.\n');
+  process.exit(0);
+}
 
 const { deployment } = outcome;
 console.log(`\nDone. Record: ${deploymentFile}`);
