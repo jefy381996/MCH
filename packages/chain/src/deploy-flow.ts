@@ -14,9 +14,10 @@ import { findReferenceScript, prepareOracle } from './oracle-ops.ts';
 import { cip68Coins, prepareMint } from './token-ops.ts';
 
 /**
- * ADA the admin wallet must hold before starting. The coin costs ~2.7 ADA,
- * but building it needs ~6 ADA in one UTxO (outputs carry minimum ADA), so
- * the check asks for the same 10 ADA the guide does.
+ * ADA the admin wallet must hold before starting. The coin costs ~2.1 ADA
+ * (pinned in fees.test.ts), but building it needs ~6 ADA in one UTxO
+ * (outputs carry minimum ADA), so the check asks for the same 10 ADA the
+ * guide does.
  */
 export const COIN_BUDGET_LOVELACE = 10_000_000n;
 /** The oracle costs ~20 ADA, most of it locked with the feed and its script. */
@@ -272,7 +273,9 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     } catch (err) {
       return {
         kind: 'refused',
-        reason: `Could not build the transaction, so nothing was sent:\n  ${firstLine(err)}`,
+        reason:
+          `Could not build the transaction, so nothing was sent:\n  ${firstLine(err)}\n` +
+          '  Try again in a few minutes. If it happens again, send me this message.',
       };
     }
     if (recorded && prepared.policyId !== recorded.policyId) {
@@ -404,7 +407,7 @@ export function deploySummary(
       `    Total supply ${wholeSupply.toLocaleString('en-GB')} coins, ${decimals} decimal places`,
       `    Description  ${m.description}`,
       `    Logo         ${m.logo ?? '(none; can be added later)'}`,
-      '    Cost         about 2.7 ADA',
+      '    Cost         about 2 ADA (a little more with a long description or a logo)',
       '    PERMANENT    the supply and asset name can never be changed, and no more coins',
       '                 can ever be created. Name, description and logo can be updated later.',
     );

@@ -126,9 +126,14 @@ const outcome = await runDeploy({
     console.log(`\n${summary}\n`);
     if (!isMainnet || assumeYes) return true;
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
-    rl.close();
-    return answer.trim() === 'CREATE';
+    try {
+      const answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
+      return answer.trim() === 'CREATE';
+    } catch {
+      return false; // Ctrl+C or a closed window: stop, nothing sent
+    } finally {
+      rl.close();
+    }
   },
   operator: () =>
     paymentCredentialOf(walletFromSeed(loadSeed('operator'), { network }).address).hash,

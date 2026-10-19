@@ -32,7 +32,7 @@ Then run: npm run chain:deploy
 REAL CARDANO. Before sending any ADA:
   1. Write the admin recovery phrase (secrets/admin.seed) on paper and keep it somewhere safe.
      Whoever has those 24 words controls every MCH coin. Anyone asking for them is a scammer.
-  2. Send about 10 ADA to the admin address above.
+  2. Send 15 ADA to the admin address above (at least 10 must arrive).
   3. Run: npm run chain:mint-coin
 Full guide: docs/MAINNET-COIN.md
 `);
