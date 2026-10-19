@@ -4,7 +4,10 @@ import { planDeployment, requireOracle, type Deployment } from '../src/deploymen
 const base: Deployment = { network: 'Mainnet', deployedAt: '', blueprint: {} };
 const token = { policyId: 'aa'.repeat(28) } as NonNullable<Deployment['token']>;
 const pendingToken = { ...token, status: 'submitted' } as NonNullable<Deployment['token']>;
-const oracle = { policyId: 'bb'.repeat(28) } as NonNullable<Deployment['oracle']>;
+const oracle = {
+  policyId: 'bb'.repeat(28),
+  referenceScript: { txHash: 'cc'.repeat(32), outputIndex: 1 },
+} as NonNullable<Deployment['oracle']>;
 const pendingOracle = { ...oracle, status: 'submitted' } as NonNullable<Deployment['oracle']>;
 
 describe('planDeployment', () => {
@@ -62,6 +65,13 @@ describe('planDeployment', () => {
         token: 'none',
         oracle: 'resume',
       },
+    );
+  });
+
+  it("looks again for a confirmed oracle's reference script if it could not be read before", () => {
+    const { referenceScript: _, ...withoutScript } = oracle;
+    expect(planDeployment({ ...base, token, oracle: withoutScript }, { tokenOnly: false })).toEqual(
+      { ok: true, token: 'none', oracle: 'resume' },
     );
   });
 

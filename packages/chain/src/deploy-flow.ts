@@ -1,11 +1,17 @@
 import type { LucidEvolution, UTxO } from '@lucid-evolution/lucid';
-import type { Basket } from '@mch/index-core';
+import { parseBasket, type Basket, type BasketFile } from '@mch/index-core';
 import { blueprintHashes } from './blueprint.ts';
 import type { OutRef, TokenMetadata } from './codec.ts';
-import { basketFileOf, type Deployment, type PartAction } from './deployment.ts';
+import {
+  basketFileOf,
+  type Deployment,
+  type OracleDeployment,
+  type PartAction,
+  type TokenDeployment,
+} from './deployment.ts';
 import { explorerTxUrl, type NetworkName } from './network.ts';
 import { findReferenceScript, prepareOracle } from './oracle-ops.ts';
-import { existingCoins, prepareMint } from './token-ops.ts';
+import { cip68Coins, prepareMint } from './token-ops.ts';
 
 /**
  * ADA the admin wallet must hold before starting. The coin costs ~2.7 ADA,
@@ -62,13 +68,22 @@ const firstLine = (err: unknown) =>
   (err instanceof Error ? err.message : String(err)).split('\n').find((l) => l.trim()) ??
   'unknown error';
 const sameRef = (u: UTxO, r: OutRef) => u.txHash === r.txHash && u.outputIndex === r.outputIndex;
+const sameBasket = (recorded: BasketFile, current: Basket) =>
+  JSON.stringify(basketFileOf(parseBasket(recorded))) === JSON.stringify(basketFileOf(current));
+const mismatch = (what: string, got: string, want: string) =>
+  `Rebuilding the earlier ${what} gave policy ${got}, but the record says ${want}, so nothing\n` +
+  '  was sent. Is secrets/admin.seed still the wallet it was first sent from?';
 
-/** Is there an output holding `unit` at `address`? Network errors count as "not yet". */
-async function holds(lucid: LucidEvolution, address: string, unit: string): Promise<boolean> {
+/** The first output holding `unit` at `address`. Network errors count as "not there yet". */
+async function findUnit(
+  lucid: LucidEvolution,
+  address: string,
+  unit: string,
+): Promise<UTxO | undefined> {
   try {
-    return (await lucid.utxosAtWithUnit(address, unit)).length > 0;
+    return (await lucid.utxosAtWithUnit(address, unit))[0];
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -83,17 +98,54 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   const lucid = r.lucid;
   const timeoutMs = r.confirmTimeoutMs ?? 10 * 60_000;
   const intervalMs = r.pollIntervalMs ?? 15_000;
-  const waitFor = async (check: () => Promise<boolean>): Promise<boolean> => {
+  const waitFor = async <T>(look: () => Promise<T | undefined>): Promise<T | undefined> => {
     const deadline = r.now() + timeoutMs;
-    while (!(await check())) {
-      if (r.now() >= deadline) return false;
+    for (;;) {
+      const found = await look();
+      if (found !== undefined || r.now() >= deadline) return found;
       await r.sleep(intervalMs);
     }
-    return true;
+  };
+  // Published by the same transaction as the oracle feed, so it should be
+  // readable at once; a few tries ride out a busy provider.
+  const referenceScriptOf = async (policyId: string): Promise<OutRef | undefined> => {
+    for (let tries = 0; tries < 3; tries++) {
+      if (tries > 0) await r.sleep(intervalMs);
+      const found = await findReferenceScript(lucid, policyId).catch(() => undefined);
+      if (found) return found;
+    }
+    r.log("  (Could not read the oracle's reference script yet. The oracle works without it;");
+    r.log('  run this command again later to add it to the record: price updates then cost less.)');
+    return undefined;
+  };
+  // Confirmed records name the transaction that actually landed. A resend made
+  // while the first send was still waiting differs from it in its bytes (never
+  // in what it creates), and only one of the two can land.
+  const confirmedCoin = (t: TokenDeployment, reference: UTxO): TokenDeployment => ({
+    ...t,
+    mintTx: reference.txHash,
+    status: 'confirmed',
+  });
+  const confirmedOracle = async (o: OracleDeployment, feed: UTxO): Promise<OracleDeployment> => {
+    const referenceScript = await referenceScriptOf(o.policyId);
+    // The reference script never moves; the feed moves with every price update.
+    const createTx = referenceScript?.txHash ?? feed.txHash;
+    return { ...o, createTx, referenceScript, status: 'confirmed' };
   };
 
-  const address = await lucid.wallet().address();
-  const utxos = await lucid.wallet().getUtxos();
+  let address: string;
+  let utxos: UTxO[];
+  try {
+    address = await lucid.wallet().address();
+    utxos = await lucid.wallet().getUtxos();
+  } catch (err) {
+    return {
+      kind: 'refused',
+      reason:
+        `Could not read the admin wallet from the network, so nothing was sent:\n  ${firstLine(err)}\n` +
+        '  Try again in a few minutes.',
+    };
+  }
   let deployment: Deployment = r.existing ?? {
     network: r.network,
     deployedAt: new Date(r.now()).toISOString(),
@@ -105,15 +157,17 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   let tokenSeed: OutRef | undefined;
   if (tokenAction === 'resume') {
     const t = deployment.token!;
-    if (await holds(lucid, t.metadataAddress, t.referenceUnit)) {
-      deployment = { ...deployment, token: { ...t, status: 'confirmed' } };
+    const reference = await findUnit(lucid, t.metadataAddress, t.referenceUnit);
+    if (reference) {
+      deployment = { ...deployment, token: confirmedCoin(t, reference) };
       r.save(deployment);
       r.log('✔ The MCH coin from the earlier run is confirmed on the network.');
       tokenAction = 'none';
     } else if (utxos.some((u) => sameRef(u, t.seed))) {
-      // The mint spends this UTxO. It is still here, so the earlier attempt never landed.
-      r.log('The earlier attempt never reached the network. It can be sent again safely:');
-      r.log('the same seed can only ever produce this same coin.');
+      // The mint spends this UTxO and the network still shows it, so the earlier
+      // attempt has not landed (it may still be on its way).
+      r.log('The earlier attempt has not reached the network yet, so it will be sent again.');
+      r.log('This is safe: it can only ever make this same coin, and only once.');
       tokenAction = 'create';
       tokenSeed = t.seed;
     } else {
@@ -121,22 +175,44 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     }
   }
   let oracleAction = r.plan.oracle;
-  let oracleSeed: OutRef | undefined;
+  let oracleResend: OracleDeployment | undefined;
   if (oracleAction === 'resume') {
     const o = deployment.oracle!;
-    if (await holds(lucid, o.address, o.authUnit)) {
-      const referenceScript =
-        o.referenceScript ?? (await findReferenceScript(lucid, o.createTx).catch(() => undefined));
-      deployment = { ...deployment, oracle: { ...o, referenceScript, status: 'confirmed' } };
-      r.save(deployment);
-      r.log('✔ The price oracle from the earlier run is confirmed on the network.');
+    if (o.status !== 'submitted') {
+      // Confirmed before, but its reference script could not be read then.
+      const referenceScript = await referenceScriptOf(o.policyId);
+      if (referenceScript) {
+        const oracle = { ...o, referenceScript, createTx: referenceScript.txHash };
+        deployment = { ...deployment, oracle };
+        r.save(deployment);
+        r.log("✔ Found the price oracle's reference script and added it to the record.");
+      }
       oracleAction = 'none';
-    } else if (utxos.some((u) => sameRef(u, o.seed))) {
-      r.log('The earlier oracle attempt never reached the network. It can be sent again safely.');
-      oracleAction = 'create';
-      oracleSeed = o.seed;
     } else {
-      return { kind: 'pending', what: 'oracle', txHash: o.createTx };
+      const feed = await findUnit(lucid, o.address, o.authUnit);
+      if (feed) {
+        deployment = { ...deployment, oracle: await confirmedOracle(o, feed) };
+        r.save(deployment);
+        r.log('✔ The price oracle from the earlier run is confirmed on the network.');
+        oracleAction = 'none';
+      } else if (utxos.some((u) => sameRef(u, o.seed))) {
+        if (!sameBasket(o.basket, r.basket)) {
+          return {
+            kind: 'refused',
+            reason:
+              'The earlier oracle attempt has not reached the network yet, and the basket file has\n' +
+              `  changed since (the attempt used "${o.basket.name}" v${o.basket.version}). Sending it again needs the basket\n` +
+              '  it was made with, so nothing was sent. Put the basket file back, or wait: it may still land.',
+          };
+        }
+        r.log(
+          'The earlier oracle attempt has not reached the network yet, so it will be sent again.',
+        );
+        oracleAction = 'create';
+        oracleResend = o;
+      } else {
+        return { kind: 'pending', what: 'oracle', txHash: o.createTx };
+      }
     }
   }
   if (tokenAction === 'none' && oracleAction === 'none') return { kind: 'done', deployment };
@@ -152,15 +228,18 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
       reason: `The admin wallet holds ${ada(lovelace)} ADA; send it at least ${ada(needed)} ADA first.\n  Address: ${address}`,
     };
   }
-  if (tokenAction === 'create' && !tokenSeed && !r.allowSecondCoin) {
-    const found = existingCoins(utxos, r.coin.assetName);
+  // Also on a resend: the recorded attempt has not landed, so any coin already
+  // here is a different one, made by a run whose record was lost.
+  if (tokenAction === 'create' && !r.allowSecondCoin) {
+    const found = cip68Coins(utxos);
     if (found.length > 0) {
       return {
         kind: 'refused',
         reason:
-          `This wallet already holds an ${r.coin.assetName} coin (policy ${found.join(', ')}).\n` +
-          '  Creating another would make a second, different coin. If the record file was lost,\n' +
-          '  send me the transaction link from when it was created and I will rebuild the record.',
+          `This wallet already holds a coin: ${found.map((c) => `${c.name} (policy ${c.policyId})`).join(', ')}.\n` +
+          '  Creating another would make a second, different coin, so nothing was sent. If the record\n' +
+          '  file was lost or is out of date, send me the transaction link from when that coin was\n' +
+          '  created and I will rebuild the record.',
       };
     }
   }
@@ -196,6 +275,9 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
         reason: `Could not build the transaction, so nothing was sent:\n  ${firstLine(err)}`,
       };
     }
+    if (recorded && prepared.policyId !== recorded.policyId) {
+      return { kind: 'refused', reason: mismatch('coin', prepared.policyId, recorded.policyId) };
+    }
     deployment = {
       ...deployment,
       token: {
@@ -221,30 +303,41 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     }
     r.log(`  sent: ${explorerTxUrl(r.network, prepared.txHash)}`);
     r.log('  waiting for the network to confirm it (usually 1-5 minutes)...');
-    if (!(await waitFor(() => holds(lucid, prepared.metadataAddress, prepared.referenceUnit)))) {
-      return { kind: 'pending', what: 'coin', txHash: prepared.txHash };
-    }
-    deployment = { ...deployment, token: { ...deployment.token!, status: 'confirmed' } };
+    const reference = await waitFor(() =>
+      findUnit(lucid, prepared.metadataAddress, prepared.referenceUnit),
+    );
+    if (!reference) return { kind: 'pending', what: 'coin', txHash: prepared.txHash };
+    deployment = { ...deployment, token: confirmedCoin(deployment.token!, reference) };
     r.save(deployment);
     r.log('  ✔ created, and the record is saved.');
   }
 
   // ---- the price oracle ----
   if (oracleAction === 'create') {
+    // As for the coin: a resend rebuilds the recorded oracle, whose policy id
+    // depends on its basket and validity window as well as the seed.
+    const basket = oracleResend ? parseBasket(oracleResend.basket) : r.basket;
     let prepared;
     try {
       prepared = await prepareOracle(lucid, {
-        basket: r.basket,
+        basket,
         operator: r.operator(),
         pricesMicro: await r.genesisPrices(),
         now: r.now(),
         publishReferenceScript: true,
-        seed: oracleSeed,
+        seed: oracleResend?.seed,
+        maxValidityMs: oracleResend?.maxValidityMs,
       });
     } catch (err) {
       return {
         kind: 'refused',
         reason: `Could not build the oracle transaction, so nothing was sent:\n  ${firstLine(err)}`,
+      };
+    }
+    if (oracleResend && prepared.policyId !== oracleResend.policyId) {
+      return {
+        kind: 'refused',
+        reason: mismatch('oracle', prepared.policyId, oracleResend.policyId),
       };
     }
     deployment = {
@@ -255,7 +348,7 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
         authUnit: prepared.authUnit,
         admin: prepared.settings.admin,
         seed: prepared.settings.seed,
-        basket: basketFileOf(r.basket),
+        basket: basketFileOf(basket),
         maxValidityMs: prepared.settings.maxValidityMs,
         createTx: prepared.txHash,
         status: 'submitted',
@@ -274,16 +367,9 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
       };
     }
     r.log(`  sent: ${explorerTxUrl(r.network, prepared.txHash)}`);
-    if (!(await waitFor(() => holds(lucid, prepared.address, prepared.authUnit)))) {
-      return { kind: 'pending', what: 'oracle', txHash: prepared.txHash };
-    }
-    const referenceScript = await findReferenceScript(lucid, prepared.txHash).catch(
-      () => undefined,
-    );
-    deployment = {
-      ...deployment,
-      oracle: { ...deployment.oracle!, referenceScript, status: 'confirmed' },
-    };
+    const feed = await waitFor(() => findUnit(lucid, prepared.address, prepared.authUnit));
+    if (!feed) return { kind: 'pending', what: 'oracle', txHash: prepared.txHash };
+    deployment = { ...deployment, oracle: await confirmedOracle(deployment.oracle!, feed) };
     r.save(deployment);
     r.log('  ✔ created, and the record is saved.');
   }
