@@ -2,6 +2,7 @@ import {
   Data,
   fromText,
   paymentCredentialOf,
+  validatorToScriptHash,
   type LucidEvolution,
   type UTxO,
 } from '@lucid-evolution/lucid';
@@ -156,13 +157,17 @@ export async function createOracle(
   return { ...created, txHash: sent };
 }
 
-/** After a create transaction confirms, finds where its reference script landed. */
+/**
+ * Where the oracle's reference script (the script whose hash is the oracle's
+ * policy id) was published. Found by its hash, not by transaction, so it is
+ * found whichever of several sends of the create transaction landed.
+ */
 export async function findReferenceScript(
   lucid: LucidEvolution,
-  txHash: string,
+  policyId: string,
 ): Promise<OutRef | undefined> {
   const utxos = await lucid.utxosAt(scriptStore(networkOf(lucid)).address);
-  const found = utxos.find((u) => u.txHash === txHash && u.scriptRef);
+  const found = utxos.find((u) => u.scriptRef && validatorToScriptHash(u.scriptRef) === policyId);
   return found && { txHash: found.txHash, outputIndex: found.outputIndex };
 }
 

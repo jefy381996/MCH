@@ -178,7 +178,9 @@ the network is slow, the program may say instead:
 
 That's fine. Wait 10 minutes and run `npm run chain:mint-coin` again. It
 checks the network and finishes the job. It will **not** create a second
-coin.
+coin. If the earlier attempt never reached the network, it says so, shows
+the summary again and asks you to type `CREATE` again: that is expected, and
+sending it again can only ever make that same coin.
 
 ## Step 7 — See your coins
 
@@ -221,8 +223,10 @@ git push
   the coin's name or logo later. Never upload it anywhere. The project
   already stops Git from uploading it.
 - For long-term safety, move most of the coins to a hardware wallet
-  (Ledger or Trezor) once you have one. **Keep the record file from Step 8
-  safe too.**
+  (Ledger or Trezor) once you have one. Before you do, make sure the record
+  file is saved (Step 8), and **leave at least 1 MCH in the admin wallet**.
+  If the record were ever lost, that coin is how the program recognises that
+  MCH already exists, and refuses to make a second one.
 
 ---
 
@@ -237,12 +241,13 @@ git push
 | `send it at least 10 ADA first`                                                         | Not enough ADA for the coin's minimum amounts                | Send a few more ADA and run Step 6 again                                                                                                                                |
 | `Could not build the transaction, so nothing was sent`                                  | Usually not enough ADA                                       | Send more ADA, then run Step 6 again. Nothing was spent                                                                                                                 |
 | `TOKEN_LOGO must be a link`                                                             | The logo line in `.env` isn't a proper link                  | Fix it, or put a `#` back at the start of that line                                                                                                                     |
-| `Could not reach the Cardano Mainnet network`                                           | Internet problem, or the free Koios service is busy          | Try again in a few minutes. Or make a free **Mainnet** project at https://blockfrost.io and add `CARDANO_PROVIDER=blockfrost` and `BLOCKFROST_PROJECT_ID=...` to `.env` |
+| `Could not reach the Cardano Mainnet network` or `Could not read the admin wallet`      | Internet problem, or the free Koios service is busy          | Try again in a few minutes. Or make a free **Mainnet** project at https://blockfrost.io and add `CARDANO_PROVIDER=blockfrost` and `BLOCKFROST_PROJECT_ID=...` to `.env` |
 | `⏳ ... sent, but the network has not confirmed it yet` or `Sending reported a problem` | The network is slow, or the connection dropped while sending | Wait 10 minutes and run `npm run chain:mint-coin` again. It finishes the job and never makes a second coin                                                              |
 | `This needs you to type a confirmation`                                                 | The window can't take typing (e.g. Git Bash)                 | Use Command Prompt (Windows) or Terminal (Mac)                                                                                                                          |
 | `The MCH coin already exists`                                                           | The coin was already created                                 | Nothing to do: running it again would make a second, different coin, so the program refuses                                                                             |
-| `This wallet already holds an MCH coin`                                                 | The coin exists but the record file is missing               | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record                                                                |
+| `This wallet already holds a coin`                                                      | The coin exists but the record file is missing               | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record                                                                |
 | `Stopped. Nothing was sent.`                                                            | You didn't type `CREATE` exactly                             | Run Step 6 again                                                                                                                                                        |
+| `Stopped by an unexpected problem`                                                      | Something outside the program failed (often the record file) | Read the rest of that message. Fix the problem if you can (for example close the file if it is open), then run Step 6 again. It never makes a second coin               |
 
 ## After the coin exists
 

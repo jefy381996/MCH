@@ -98,6 +98,7 @@ try {
 // ---- connect, then hand over to the tested flow ----
 const lucid = await connectOrExit(options);
 lucid.selectWallet.fromSeed(adminSeed);
+const again = tokenOnly ? 'npm run chain:mint-coin' : 'npm run chain:deploy';
 
 const outcome = await runDeploy({
   lucid,
@@ -136,13 +137,18 @@ const outcome = await runDeploy({
   log: (line) => console.log(line),
   now: () => Date.now(),
   sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
-});
+}).catch((err: unknown) =>
+  fail(
+    `Stopped by an unexpected problem: ${err instanceof Error ? err.message : String(err)}\n` +
+      '  Anything already sent is in the record. Fix the problem above if you can, then run\n' +
+      `  \`${again}\` again: it checks the network first and never makes a second coin.`,
+  ),
+);
 
 if (outcome.kind === 'refused') fail(outcome.reason);
 if (outcome.kind === 'cancelled') fail('Stopped. Nothing was sent.');
 if (outcome.kind === 'pending') {
   const what = outcome.what === 'coin' ? 'The MCH coin' : 'The price oracle';
-  const again = tokenOnly ? 'npm run chain:mint-coin' : 'npm run chain:deploy';
   console.log(
     outcome.sendError
       ? `\n⏳ Sending reported a problem: ${outcome.sendError}\n   It may or may not have reached the network.`

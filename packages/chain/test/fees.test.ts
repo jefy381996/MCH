@@ -60,7 +60,7 @@ describe('oracle update fees', () => {
         seed: created.settings.seed,
         basket: serializeBasket(basket),
         maxValidityMs: created.settings.maxValidityMs,
-        referenceScript: await findReferenceScript(lucid, created.txHash),
+        referenceScript: await findReferenceScript(lucid, created.policyId),
         createTx: created.txHash,
       },
     };

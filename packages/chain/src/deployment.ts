@@ -91,7 +91,9 @@ export function planDeployment(existing: Deployment | null, o: { tokenOnly: bool
     }
     return { ok: true, token, oracle: 'none' };
   }
-  const oracle = actionFor(existing?.oracle);
+  let oracle = actionFor(existing?.oracle);
+  // Confirmed, but its reference script could not be read at the time: look again.
+  if (oracle === 'none' && !existing?.oracle?.referenceScript) oracle = 'resume';
   if (token === 'none' && oracle === 'none') {
     return {
       ok: false,

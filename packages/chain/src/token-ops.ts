@@ -1,4 +1,4 @@
-import { fromText, toUnit, type LucidEvolution } from '@lucid-evolution/lucid';
+import { fromText, toText, toUnit, type LucidEvolution } from '@lucid-evolution/lucid';
 import { tokenScript } from './blueprint.ts';
 import {
   cip68DatumToCbor,
@@ -103,22 +103,34 @@ export async function mintToken(lucid: LucidEvolution, o: MintTokenOptions): Pro
   return { ...minted, txHash: sent };
 }
 
+/** CIP-67 prefix of a CIP-68 fungible coin's asset name (label 333). */
+const FUNGIBLE_LABEL = '0014df10';
+
 /**
- * Policy ids of MCH-style coins (CIP-68 fungible, this asset name) already in
- * a set of UTxOs. The deploy script uses this as a second line of defence
- * against minting a second coin when the deployment record has been lost.
+ * Every CIP-68 fungible coin in a set of UTxOs, whatever its name. The deploy
+ * flow treats any of these in the admin wallet as a sign that a coin already
+ * exists, so a lost or out-of-date record, or a name typed differently (Mch
+ * instead of MCH), cannot lead to minting a second coin.
  */
+export function cip68Coins(
+  utxos: Array<{ assets: Record<string, bigint> }>,
+): Array<{ policyId: string; name: string }> {
+  const units = new Set(utxos.flatMap((u) => Object.keys(u.assets)));
+  return [...units]
+    .filter((unit) => unit.slice(56, 64) === FUNGIBLE_LABEL)
+    .map((unit) => ({ policyId: unit.slice(0, 56), name: toText(unit.slice(64)) }));
+}
+
+/** Policy ids of CIP-68 fungible coins with exactly this asset name. */
 export function existingCoins(
   utxos: Array<{ assets: Record<string, bigint> }>,
   name: string,
 ): string[] {
-  const suffix = `0014df10${fromText(name)}`;
-  const policies = new Set<string>();
-  for (const u of utxos) {
-    for (const unit of Object.keys(u.assets)) {
-      if (unit.length === 56 + suffix.length && unit.endsWith(suffix))
-        policies.add(unit.slice(0, 56));
-    }
-  }
-  return [...policies];
+  return [
+    ...new Set(
+      cip68Coins(utxos)
+        .filter((c) => c.name === name)
+        .map((c) => c.policyId),
+    ),
+  ];
 }
