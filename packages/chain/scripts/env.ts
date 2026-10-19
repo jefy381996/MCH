@@ -11,12 +11,14 @@ if (existsSync(dotEnv)) process.loadEnvFile(dotEnv);
 
 /** Network and provider settings shared by every chain script. */
 export function connectOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): ConnectOptions {
-  const network = env.CARDANO_NETWORK ?? 'Preprod';
+  // Any capitalisation: "mainnet" in .env means Mainnet.
+  const raw = env.CARDANO_NETWORK?.trim() || 'Preprod';
+  const network = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   if (!isNetworkName(network))
-    throw new Error(`CARDANO_NETWORK must be Preprod, Preview or Mainnet, not "${network}"`);
-  const provider = env.CARDANO_PROVIDER ?? 'koios';
+    fail(`CARDANO_NETWORK in .env must be Preprod, Preview or Mainnet, not "${raw}".`);
+  const provider = env.CARDANO_PROVIDER?.trim().toLowerCase() || 'koios';
   if (provider !== 'koios' && provider !== 'blockfrost') {
-    throw new Error(`CARDANO_PROVIDER must be koios or blockfrost, not "${provider}"`);
+    fail(`CARDANO_PROVIDER in .env must be koios or blockfrost, not "${env.CARDANO_PROVIDER}".`);
   }
   return { network, provider, blockfrostProjectId: env.BLOCKFROST_PROJECT_ID };
 }
