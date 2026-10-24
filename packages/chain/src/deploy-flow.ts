@@ -60,7 +60,8 @@ export interface DeployRun {
 export type DeployOutcome =
   | { kind: 'done'; deployment: Deployment }
   | { kind: 'refused'; reason: string }
-  | { kind: 'cancelled' }
+  /** `earlier`: an earlier attempt was not resent, and may still land. */
+  | { kind: 'cancelled'; earlier?: boolean }
   /**
    * Sent (or possibly sent) and recorded, but not confirmed yet. Re-running
    * finishes the job. `resent`: this run sent a new copy of an earlier
@@ -163,6 +164,15 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     const createTx = referenceScript?.txHash ?? feed.txHash;
     return { ...o, createTx, referenceScript, status: 'confirmed' };
   };
+
+  /** Does the wallet still hold this UTxO? If the wallet cannot be read, assume not. */
+  const stillHolds = async (ref: OutRef): Promise<boolean> =>
+    (
+      await lucid
+        .wallet()
+        .getUtxos()
+        .catch(() => [] as UTxO[])
+    ).some((u) => sameRef(u, ref));
 
   let address: string;
   let adminKey: string;
@@ -309,7 +319,7 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   if (
     !(await r.confirm(deploySummary({ ...r, coin }, address, lovelace, tokenAction, oracleAction)))
   ) {
-    return { kind: 'cancelled' };
+    return { kind: 'cancelled', earlier: Boolean(recorded || oracleResend) };
   }
 
   // ---- look again: the reader may have taken a while to answer. An earlier
@@ -349,11 +359,13 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     } catch (err) {
       // On a resend the usual cause is that the earlier attempt spent the seed
       // (it landed while the reader was answering): never say nothing happened.
-      if (earlierTx) return { kind: 'pending', what: 'coin', txHash: earlierTx };
+      if (earlierTx && !(await stillHolds(recorded!.seed))) {
+        return { kind: 'pending', what: 'coin', txHash: earlierTx };
+      }
       return {
         kind: 'refused',
         reason:
-          `Could not build the transaction, so nothing was sent:\n  ${firstLine(err)}\n` +
+          `Could not build the transaction, so nothing ${earlierTx ? 'new ' : ''}was sent:\n  ${firstLine(err)}\n` +
           '  Try again in a few minutes. If it happens again, send me this message.',
       };
     }
@@ -413,16 +425,21 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
       prepared = await prepareOracle(lucid, {
         basket,
         operator: oracleInputs!.operator,
-        pricesMicro: oracleInputs!.prices,
+        // Fetched again: the reader may have spent a while at the prompt, and the
+        // opening prices are stamped with the time the transaction is built.
+        pricesMicro: await r.genesisPrices(),
         now: r.now(),
         publishReferenceScript: true,
         seed: oracleResend?.seed,
         maxValidityMs: oracleResend?.maxValidityMs,
       });
     } catch (err) {
+      if (oracleResend && !(await stillHolds(oracleResend.seed))) {
+        return { kind: 'pending', what: 'oracle', txHash: oracleResend.createTx };
+      }
       return {
         kind: 'refused',
-        reason: `Could not build the oracle transaction, so nothing was sent:\n  ${firstLine(err)}`,
+        reason: `Could not build the oracle transaction, so nothing ${oracleResend ? 'new ' : ''}was sent:\n  ${firstLine(err)}`,
       };
     }
     if (oracleResend && prepared.policyId !== oracleResend.policyId) {

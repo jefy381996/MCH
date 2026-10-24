@@ -18,6 +18,7 @@ import {
   type OutRef,
 } from './codec.ts';
 import { oracleSettingsOf, requireOracle, type Deployment } from './deployment.ts';
+import { firstByOutRef } from './token-ops.ts';
 
 export const AUTH_TOKEN_NAME = 'MCH-ORACLE';
 /** ADA kept in the feed UTxO. Covers the ledger's minimum for an output with a datum. */
@@ -89,7 +90,7 @@ export async function prepareOracle(
   const utxos = await lucid.wallet().getUtxos();
   const seed = o.seed
     ? utxos.find((u) => u.txHash === o.seed!.txHash && u.outputIndex === o.seed!.outputIndex)
-    : utxos[0];
+    : firstByOutRef(utxos);
   if (!seed) {
     throw new Error(
       o.seed

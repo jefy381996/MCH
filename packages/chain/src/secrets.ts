@@ -41,7 +41,7 @@ export function loadSeed(
   if (!valid(seed)) {
     throw new Error(
       `secrets/${role}.seed is no longer a valid recovery phrase (it was probably changed while\n` +
-        '  open in an editor). Nothing was sent. Do NOT delete it or run `npm run chain:wallets`:\n' +
+        '  open in an editor). Nothing was sent. Do NOT delete it or make a new wallet:\n' +
         '  type the 24 words from your paper back into it, in order with one space between\n' +
         '  them, and save it.',
     );

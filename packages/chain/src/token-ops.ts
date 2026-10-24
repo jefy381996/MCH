@@ -9,6 +9,21 @@ import {
 } from './codec.ts';
 import { walletKeyHash } from './oracle-ops.ts';
 
+/**
+ * The wallet UTxO with the lowest output reference, rather than whichever the
+ * provider lists first. Every run that sees the same wallet picks the same
+ * seed, so two runs racing each other (from two folders, say, while the first
+ * send is still on its way) build the same one-shot transaction, and at most
+ * one of them can land.
+ */
+export function firstByOutRef<T extends { txHash: string; outputIndex: number }>(
+  utxos: T[],
+): T | undefined {
+  return [...utxos].sort((a, b) =>
+    a.txHash === b.txHash ? a.outputIndex - b.outputIndex : a.txHash < b.txHash ? -1 : 1,
+  )[0];
+}
+
 export interface MintTokenOptions {
   /** Asset name without label, e.g. "MCH". */
   name: string;
@@ -20,7 +35,7 @@ export interface MintTokenOptions {
   /**
    * The wallet UTxO the mint must consume. It fixes the coin's identity (its
    * policy id), so resending with the same seed can only ever produce the same
-   * coin, never a second one. Defaults to the wallet's first UTxO.
+   * coin, never a second one. Defaults to firstByOutRef of the wallet.
    */
   seed?: OutRef;
 }
@@ -53,7 +68,7 @@ export async function prepareMint(
   const utxos = await lucid.wallet().getUtxos();
   const seed = o.seed
     ? utxos.find((u) => u.txHash === o.seed!.txHash && u.outputIndex === o.seed!.outputIndex)
-    : utxos[0];
+    : firstByOutRef(utxos);
   if (!seed) {
     throw new Error(
       o.seed
