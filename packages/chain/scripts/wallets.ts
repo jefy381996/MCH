@@ -5,21 +5,39 @@
  * prints their addresses so you can fund them from the testnet faucet.
  */
 import { addressOf, ensureSeed, loadSeed, SECRETS_DIR, type Role } from '../src/secrets.ts';
-import { connectOptionsFromEnv } from './env.ts';
+import { connectOptionsFromEnv, fail } from './env.ts';
 
 const { network } = connectOptionsFromEnv();
+const isMainnet = network === 'Mainnet';
 const roles: Array<[Role, string]> = [
   ['admin', 'cold key: deploys the oracle and token, can rotate the operator key'],
-  ['operator', 'hot key: signs every price update, runs on the server'],
+  [
+    'operator',
+    isMainnet
+      ? 'for the price oracle later. Do NOT send ADA here for the coin'
+      : 'hot key: signs every price update, runs on the server',
+  ],
 ];
 
 console.log(`\nMCH wallets on ${network}\n`);
 for (const [role, purpose] of roles) {
   const created = ensureSeed(role);
-  console.log(`  ${role.padEnd(9)} ${addressOf(loadSeed(role), network)}`);
+  let address: string;
+  try {
+    address = addressOf(loadSeed(role), network);
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+  console.log(`  ${role.padEnd(9)} ${address}`);
   console.log(`  ${''.padEnd(9)} ${purpose}${created ? '  [NEW]' : ''}\n`);
 }
-console.log(`Seed phrases are in ${SECRETS_DIR} (git-ignored). Back them up somewhere safe.`);
+console.log(
+  isMainnet
+    ? `Your recovery phrases are in ${SECRETS_DIR} (Git never uploads them).\n` +
+        'Never copy these files to the cloud, an email or a photo.\n' +
+        'To see these addresses again later, run this again: it never replaces an existing wallet.'
+    : `Seed phrases are in ${SECRETS_DIR} (git-ignored). Back them up somewhere safe.`,
+);
 if (network !== 'Mainnet') {
   console.log(`
 Next: get free test ADA for both addresses from the faucet

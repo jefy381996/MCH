@@ -12,16 +12,50 @@ export const SECRETS_DIR = fileURLToPath(new URL('../../../secrets/', import.met
  * Seed phrase for a role: from ADMIN_SEED / OPERATOR_SEED if set (hosting
  * platforms), otherwise from secrets/<role>.seed (local, git-ignored).
  */
-export function loadSeed(role: Role, env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env[`${role.toUpperCase()}_SEED`]?.trim();
-  if (fromEnv) return fromEnv;
-  const path = join(SECRETS_DIR, `${role}.seed`);
+export function loadSeed(
+  role: Role,
+  env: NodeJS.ProcessEnv = process.env,
+  dir = SECRETS_DIR,
+): string {
+  const variable = `${role.toUpperCase()}_SEED`;
+  const fromEnv = env[variable]?.trim();
+  if (fromEnv) {
+    if (!valid(fromEnv)) throw new Error(`${variable} is not a valid recovery phrase.`);
+    return fromEnv;
+  }
+  const path = join(dir, `${role}.seed`);
   if (!existsSync(path)) {
     throw new Error(
-      `No ${role} wallet. Run \`npm run chain:wallets\` or set ${role.toUpperCase()}_SEED.`,
+      `No ${role} wallet in this folder (secrets/${role}.seed is missing). Nothing was sent.\n` +
+        '  If you have not created your wallets yet, run `npm run chain:wallets`.\n' +
+        '  If you already sent ADA to this wallet or created the coin, do NOT make a new one:\n' +
+        `  put your 24 words from paper into secrets/${role}.seed, or ask me.`,
     );
   }
-  return readFileSync(path, 'utf8').trim();
+  const seed = readFileSync(path, 'utf8')
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .join(' ');
+  if (!valid(seed)) {
+    throw new Error(
+      `secrets/${role}.seed is no longer a valid recovery phrase (it was probably changed while\n` +
+        '  open in an editor). Nothing was sent. Do NOT delete it or run `npm run chain:wallets`:\n' +
+        '  type the 24 words from your paper back into it, in order with one space between\n' +
+        '  them, and save it.',
+    );
+  }
+  return seed;
+}
+
+function valid(seed: string): boolean {
+  try {
+    walletFromSeed(seed, { network: 'Mainnet' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Creates secrets/<role>.seed if missing. Returns whether a new one was made. */

@@ -12,3 +12,7 @@ contracts/build/
 secrets/
 *.skey
 *.seed
+
+# Deploy runs: a lock while one runs, and the copy written before the record is swapped in
+deployments/*.lock
+deployments/*.tmp

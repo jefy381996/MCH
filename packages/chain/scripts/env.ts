@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { LucidEvolution } from '@lucid-evolution/lucid';
@@ -7,7 +7,30 @@ import { connect, isNetworkName, type ConnectOptions, type NetworkName } from '.
 // Every chain script imports this module first, so .env is loaded before
 // anything reads process.env. Real environment variables win.
 const dotEnv = fileURLToPath(new URL('../../../.env', import.meta.url));
-if (existsSync(dotEnv)) process.loadEnvFile(dotEnv);
+if (existsSync(dotEnv)) {
+  const twice = repeatedKeys(readFileSync(dotEnv, 'utf8'));
+  if (twice.length > 0) {
+    // The last copy silently wins, so a pasted block can leave the old values in force.
+    fail(
+      `.env has more than one ${twice.map((k) => `${k}=`).join(', ')} line. Only the last one counts,\n` +
+        '  which is easy to miss. Delete the extra lines, keeping the ones you want, and save the file.',
+    );
+  }
+  process.loadEnvFile(dotEnv);
+}
+
+/** Settings set on more than one (uncommented) line of a .env file. */
+export function repeatedKeys(text: string): string[] {
+  const seen = new Set<string>();
+  const twice = new Set<string>();
+  for (const line of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    const key = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line)?.[1];
+    if (!key) continue;
+    if (seen.has(key)) twice.add(key);
+    seen.add(key);
+  }
+  return [...twice];
+}
 
 /** Network and provider settings shared by every chain script. */
 export function connectOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): ConnectOptions {
@@ -50,15 +73,25 @@ export function fail(message: string): never {
 
 /** Connects to Cardano, or exits with an explanation a non-specialist can act on. */
 export async function connectOrExit(options: ConnectOptions): Promise<LucidEvolution> {
+  const { network, provider } = options;
+  const prefix = network.toLowerCase(); // Blockfrost ids start with their network's name
+  if (provider === 'blockfrost' && !options.blockfrostProjectId?.trim().startsWith(prefix)) {
+    fail(
+      `BLOCKFROST_PROJECT_ID in .env must be the id of a ${network} project from blockfrost.io\n` +
+        `  (it starts with "${prefix}"). Nothing was sent.`,
+    );
+  }
   try {
     return await connect(options);
   } catch (err) {
     const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
     fail(
-      `Could not reach the Cardano ${options.network} network through ${options.provider}.\n` +
+      `Could not reach the Cardano ${network} network through ${provider}. Nothing was sent.\n` +
         `  ${detail}\n` +
-        '  Check your internet connection. If Koios is down or rate-limiting you, create a free\n' +
-        '  project at https://blockfrost.io and set CARDANO_PROVIDER=blockfrost and BLOCKFROST_PROJECT_ID.',
+        (provider === 'koios'
+          ? '  Check your internet connection. If Koios is down or rate-limiting you, create a free\n' +
+            `  ${network} project at https://blockfrost.io and set CARDANO_PROVIDER=blockfrost and BLOCKFROST_PROJECT_ID.`
+          : `  Check your internet connection, and that BLOCKFROST_PROJECT_ID is your ${network} project's id.`),
     );
   }
 }

@@ -71,8 +71,13 @@ cd MCH
 npm install
 ```
 
-`npm install` takes a minute or two. Warnings are normal; red `ERR!` lines
-are not.
+`npm install` takes a minute or two. Lines starting with `npm warn` are
+normal. Lines starting with `npm error` mean it failed: check your internet
+connection and type `npm install` again.
+
+If `git clone` says `destination path 'MCH' already exists`, you have an
+older copy. Rename it first (`ren MCH MCH-old` on Windows, `mv MCH MCH-old`
+on a Mac), then type the three lines again.
 
 The project is now in a folder called **MCH** inside your home folder
 (`C:\Users\<your name>\MCH` on Windows, `/Users/<your name>/MCH` on a Mac).
@@ -90,8 +95,9 @@ Create your settings file and open it:
 | `copy .env.example .env` | `cp .env.example .env` |
 | `notepad .env`           | `open -e .env`         |
 
-In the file that opens, find these lines (they are already there) and make
-them say exactly this:
+In the file that opens, find these lines (they are already there) and
+change them to say exactly this. Change the existing lines; don't paste new
+copies of them (the program refuses a file that sets something twice):
 
 ```
 CARDANO_NETWORK=Mainnet
@@ -112,7 +118,9 @@ text after the `=`:
 ```
 
 Keep the words "Not backed by metal and not redeemable." in the description:
-they tell anyone who sees the coin what it is not.
+they tell anyone who sees the coin what it is not. If your text contains a
+`#`, put the whole text in double quotes (`TOKEN_DESCRIPTION="..."`):
+otherwise everything from the `#` on is ignored.
 
 **Logo (optional):** if you already have a logo uploaded somewhere
 permanent, find the line `# TOKEN_LOGO=`, delete the `#` at its start, and
@@ -129,15 +137,17 @@ npm run chain:wallets
 
 It prints an **admin** address starting with `addr1`. This wallet will hold
 all the MCH coins. (If it starts with `addr_test1`, Step 3 wasn't saved:
-check the `CARDANO_NETWORK` line.)
+check the `CARDANO_NETWORK` line.) To see this address again later, type
+`npm run chain:wallets` again: it shows the same wallet and never replaces it.
 
-Open the file holding the wallet's recovery phrase:
+Show the wallet's recovery phrase:
 
-| Windows                      | Mac                          |
-| ---------------------------- | ---------------------------- |
-| `notepad secrets\admin.seed` | `open -e secrets/admin.seed` |
+| Windows                   | Mac                      |
+| ------------------------- | ------------------------ |
+| `type secrets\admin.seed` | `cat secrets/admin.seed` |
 
-It holds 24 words: the **recovery phrase**.
+It prints 24 words: the **recovery phrase**. (Don't open that file in an
+editor: one stray key changes the phrase.)
 
 - **Write the 24 words on paper**, in order, and keep the paper somewhere safe.
 - Whoever has these words controls every MCH coin. Never type them into a
@@ -147,14 +157,15 @@ It holds 24 words: the **recovery phrase**.
   website, and only when you want to send coins. Anyone asking for them is
   a scammer, including someone claiming to be me.
 
-(An "operator" wallet is also created. It is for the oracle later; ignore it for now.)
+An "operator" wallet is also shown, second. It is for the price oracle
+later: ignore it, and never send ADA to it.
 
 ## Step 5 — Put ADA in the wallet
 
 1. Buy about **20 ADA** on a crypto exchange that is registered with the FCA.
    You can check an exchange on the FCA register: https://register.fca.org.uk
-2. Withdraw **15 ADA** to your **admin address** from Step 4, in one
-   withdrawal. (At least 10 ADA must arrive; exchanges often take their fee
+2. Withdraw **15 ADA** to your **admin address** (the first address in
+   Step 4), in one withdrawal. (At least 10 ADA must arrive; exchanges often take their fee
    from the amount.) Copy and paste the address (never type it), and check
    the first and last few characters match.
 3. Wait until it arrives (usually 5–30 minutes). To check, paste your
@@ -169,8 +180,8 @@ npm run chain:mint-coin
 ```
 
 It shows a summary: network, your wallet and balance, the coin's name, the
-total supply, the cost, and what is permanent. **Read it.** If everything is
-right, type `CREATE` and press Enter. Typing anything else (or pressing
+total supply, the cost, and what is permanent. **Read it**, and check that
+it says `Asset name   MCH`. If everything is right, type `CREATE` and press Enter. Typing anything else (or pressing
 Ctrl+C) at that question stops it, and nothing is sent.
 
 Then you'll see:
@@ -204,8 +215,8 @@ expected, and sending it again can only ever make that same coin. If that
 then says "Sending the new copy reported a problem", the first copy is
 probably still on its way: wait another 10 minutes and run it again.
 
-If it still shows a ⏳ message after an hour, stop and send me the
-`Transaction:` link it shows.
+If it still shows a ⏳ message after an hour, or three times in a row, stop
+and send me the whole message, including the `Transaction:` link.
 
 ## Step 7 — See your coins
 
@@ -272,21 +283,31 @@ easiest way above.
 | You see                                                                            | It means                                                             | Do this                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `running scripts is disabled on this system`                                       | You're in PowerShell, which blocks `npm`                             | Use **Command Prompt** instead (Step 1)                                                                                                                                                                                     |
+| `destination path 'MCH' already exists`                                            | You have an older copy of the project                                | Rename it first (`ren MCH MCH-old` on Windows, `mv MCH MCH-old` on a Mac), then do Step 2 again                                                                                                                             |
 | `Could not read package.json` or `ENOENT`                                          | The window is not in the MCH folder                                  | Type `cd MCH`, then run the command again                                                                                                                                                                                   |
+| `Cannot find package`                                                              | `npm install` did not finish                                         | Type `npm install` again, in the MCH folder                                                                                                                                                                                 |
 | `Unknown file extension ".ts"`                                                     | Node is too old                                                      | Install the LTS version from nodejs.org (Step 1)                                                                                                                                                                            |
-| `Real Cardano (Mainnet) is locked`                                                 | Step 3 isn't done                                                    | Check the two lines in `.env` and save the file                                                                                                                                                                             |
+| `.env has more than one`                                                           | A setting appears twice in `.env` (often after pasting)              | Delete the extra lines it names, keeping the ones from Step 3, and save the file                                                                                                                                            |
+| `Real Cardano (Mainnet) is locked`                                                 | Step 3 isn't done                                                    | Make sure `.env` has the lines `CARDANO_NETWORK=Mainnet` and `MCH_MAINNET_ACKNOWLEDGED=yes`, and save the file                                                                                                              |
 | `CARDANO_NETWORK in .env must be`                                                  | A typing mistake in that line                                        | Make it say `CARDANO_NETWORK=Mainnet` and save the file                                                                                                                                                                     |
-| `The admin wallet holds 0 ADA`                                                     | The ADA hasn't arrived, or went to another address                   | Wait, then check the address on cardanoscan.io                                                                                                                                                                              |
-| `send it at least 10 ADA first`                                                    | Not enough ADA arrived                                               | Send a few more ADA and run Step 6 again                                                                                                                                                                                    |
+| `no longer a valid recovery phrase`                                                | The recovery phrase file was changed, probably in an editor          | **Don't** delete it or make a new wallet. Open it (`notepad secrets\admin.seed` or `open -e secrets/admin.seed`), type the 24 words from your paper in order with one space between them, and save it                       |
+| `No admin wallet in this folder`                                                   | There is no recovery phrase file in this MCH folder                  | If you haven't done Step 4 yet, do it now. If you have already sent ADA or created the coin, **don't** make a new wallet: ask me                                                                                            |
+| `This is already running in another window`                                        | Another window is running the same command                           | Finish or close the other window, then run it again here                                                                                                                                                                    |
+| `The admin wallet holds 0 ADA`                                                     | The ADA hasn't arrived, or went to another address                   | Wait, then check the address on cardanoscan.io. If you sent it to the operator address (the second one in Step 4), it is still yours: don't send more, ask me                                                               |
+| `needs at least 10 ADA`                                                            | Not enough ADA arrived                                               | Send the extra amount it names to the admin address, then run Step 6 again                                                                                                                                                  |
 | `Could not build the transaction, so nothing was sent`                             | Usually a network hiccup. Nothing was spent                          | Run Step 6 again in a few minutes. If the message mentions "collateral", first send 5 more ADA in one withdrawal. If it keeps happening, send me the message                                                                |
 | `TOKEN_LOGO must be a link`                                                        | The logo line in `.env` isn't a proper link                          | Fix it, or put a `#` back at the start of that line                                                                                                                                                                         |
 | `Could not reach the Cardano Mainnet network` or `Could not read the admin wallet` | Internet problem, or the free Koios service is busy                  | Try again in a few minutes. Or make a free **Mainnet** project at https://blockfrost.io, then in `.env` change the existing lines to `CARDANO_PROVIDER=blockfrost` and `BLOCKFROST_PROJECT_ID=` followed by your project id |
+| `BLOCKFROST_PROJECT_ID in .env must be`                                            | The Blockfrost project id is missing, or is for a test network       | Use the id of a **Mainnet** project from blockfrost.io (it starts with `mainnet`)                                                                                                                                           |
+| `Could not save the record file`                                                   | Another program has the record file open, or the folder is read-only | Close any program that has `deployments/mainnet.json` open, then run Step 6 again. Nothing was sent                                                                                                                         |
 | Anything starting with `⏳`                                                        | The network is slow, the connection dropped, or it was stopped early | Wait 10 minutes and run `npm run chain:mint-coin` again. It finishes the job and never makes a second coin                                                                                                                  |
 | `This needs you to type a confirmation`                                            | The window can't take typing (e.g. Git Bash)                         | Use Command Prompt (Windows) or Terminal (Mac)                                                                                                                                                                              |
 | `The MCH coin already exists`                                                      | The coin was already created                                         | Nothing to do: running it again would make a second, different coin, so the program refuses                                                                                                                                 |
-| `This wallet already holds a coin`                                                 | The coin exists but the record file is missing or out of date        | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record                                                                                                                    |
-| `Stopped. Nothing was sent.`                                                       | You didn't type `CREATE` exactly, or pressed Ctrl+C                  | Run Step 6 again                                                                                                                                                                                                            |
-| `Stopped by an unexpected problem`                                                 | Something outside the program failed (often the record file)         | Read the rest of that message. Fix the problem if you can (for example close the file if it is open), then run Step 6 again. It never makes a second coin                                                                   |
+| `This wallet already holds a coin`                                                 | The coin exists but the record file is missing or out of date        | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record. If you never created a coin, someone may have sent you one: send me the message                                   |
+| `could not be read`                                                                | The record file is damaged                                           | **Don't** delete it. Send it to me as it is                                                                                                                                                                                 |
+| `different admin wallet`                                                           | `secrets/admin.seed` is not the wallet the earlier attempt used      | Put back the 24 words of the wallet you used before (from your paper), or ask me                                                                                                                                            |
+| `Stopped. Nothing was sent.`                                                       | You didn't type `CREATE` exactly, or pressed Ctrl+C at that question | Run Step 6 again                                                                                                                                                                                                            |
+| `Stopped by an unexpected problem`                                                 | Something outside the program failed                                 | Read the rest of that message. Fix the problem if you can, then run Step 6 again. It never makes a second coin                                                                                                              |
 
 ## After the coin exists
 

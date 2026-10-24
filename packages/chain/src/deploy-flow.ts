@@ -10,7 +10,7 @@ import {
   type TokenDeployment,
 } from './deployment.ts';
 import { explorerTxUrl, type NetworkName } from './network.ts';
-import { findReferenceScript, prepareOracle } from './oracle-ops.ts';
+import { findReferenceScript, prepareOracle, walletKeyHash } from './oracle-ops.ts';
 import { cip68Coins, prepareMint } from './token-ops.ts';
 
 /**
@@ -81,6 +81,26 @@ const firstLine = (err: unknown) =>
 const sameRef = (u: UTxO, r: OutRef) => u.txHash === r.txHash && u.outputIndex === r.outputIndex;
 const sameBasket = (recorded: BasketFile, current: Basket) =>
   JSON.stringify(basketFileOf(parseBasket(recorded))) === JSON.stringify(basketFileOf(current));
+const walletUnreadable = (err: unknown) =>
+  `Could not read the admin wallet from the network, so nothing was sent:\n  ${firstLine(err)}\n` +
+  '  Try again in a few minutes.';
+const unsaved = (err: unknown) =>
+  `Could not save the record file, so nothing was sent:\n  ${firstLine(err)}\n` +
+  '  Close any program that has the record file open, then run this again.';
+/** Refuses if the wallet already holds a coin of this kind: making another would be a second coin. */
+function secondCoin(utxos: UTxO[]): DeployOutcome | undefined {
+  const found = cip68Coins(utxos);
+  if (found.length === 0) return undefined;
+  return {
+    kind: 'refused',
+    reason:
+      `This wallet already holds a coin: ${found.map((c) => `${c.name} (policy ${c.policyId})`).join(', ')}.\n` +
+      '  Creating another would make a second, different coin, so nothing was sent. If the record\n' +
+      '  file was lost or is out of date, send me the transaction link from when that coin was\n' +
+      '  created and I will rebuild the record. If you have never created a coin with this wallet,\n' +
+      '  someone may have sent you this one: send me this message.',
+  };
+}
 const mismatch = (what: string, got: string, want: string) =>
   `Rebuilding the earlier ${what} gave policy ${got}, but the record says ${want}, so nothing\n` +
   '  was sent. Is secrets/admin.seed still the wallet it was first sent from?';
@@ -145,23 +165,31 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   };
 
   let address: string;
+  let adminKey: string;
   let utxos: UTxO[];
   try {
     address = await lucid.wallet().address();
+    adminKey = await walletKeyHash(lucid);
     utxos = await lucid.wallet().getUtxos();
   } catch (err) {
-    return {
-      kind: 'refused',
-      reason:
-        `Could not read the admin wallet from the network, so nothing was sent:\n  ${firstLine(err)}\n` +
-        '  Try again in a few minutes.',
-    };
+    return { kind: 'refused', reason: walletUnreadable(err) };
   }
   let deployment: Deployment = r.existing ?? {
     network: r.network,
     deployedAt: new Date(r.now()).toISOString(),
     blueprint: blueprintHashes(),
   };
+  // Finishing an earlier attempt needs the wallet that signed it.
+  const unfinished = [deployment.token, deployment.oracle].filter((p) => p?.status === 'submitted');
+  if (unfinished.some((p) => p!.admin !== adminKey)) {
+    return {
+      kind: 'refused',
+      reason:
+        'The record was made with a different admin wallet from the one in secrets/admin.seed,\n' +
+        '  so nothing was sent. Put back the admin.seed the earlier attempt used (the 24 words\n' +
+        '  on your paper), or ask me.',
+    };
+  }
 
   // ---- earlier attempts that were sent but never confirmed ----
   let tokenAction = r.plan.token;
@@ -211,13 +239,13 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
           return {
             kind: 'refused',
             reason:
-              'The earlier oracle attempt has not reached the network yet, and the basket file has\n' +
+              'The network does not show the earlier oracle attempt yet, and the basket file has\n' +
               `  changed since (the attempt used "${o.basket.name}" v${o.basket.version}). Sending it again needs the basket\n` +
               '  it was made with, so nothing was sent. Put the basket file back, or wait: it may still land.',
           };
         }
         r.log(
-          'The earlier oracle attempt has not reached the network yet, so it will be sent again.',
+          'The network does not show the earlier oracle attempt yet, so it will be sent again.',
         );
         oracleAction = 'create';
         oracleResend = o;
@@ -236,41 +264,78 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   if (lovelace < needed) {
     return {
       kind: 'refused',
-      reason: `The admin wallet holds ${ada(lovelace)} ADA; send it at least ${ada(needed)} ADA first.\n  Address: ${address}`,
+      reason:
+        `The admin wallet holds ${ada(lovelace)} ADA but needs at least ${ada(needed)} ADA, so nothing was sent.\n` +
+        `  Send at least ${ada(needed - lovelace)} more ADA to the admin address:\n  ${address}`,
     };
   }
   // Also on a resend: the recorded attempt has not landed, so any coin already
   // here is a different one, made by a run whose record was lost.
   if (tokenAction === 'create' && !r.allowSecondCoin) {
-    const found = cip68Coins(utxos);
-    if (found.length > 0) {
+    const refusal = secondCoin(utxos);
+    if (refusal) return refusal;
+  }
+  // Everything the oracle needs from outside, before anything is sent.
+  let oracleInputs: { operator: string; prices: bigint[] } | undefined;
+  if (oracleAction === 'create') {
+    try {
+      oracleInputs = { operator: r.operator(), prices: await r.genesisPrices() };
+    } catch (err) {
       return {
         kind: 'refused',
-        reason:
-          `This wallet already holds a coin: ${found.map((c) => `${c.name} (policy ${c.policyId})`).join(', ')}.\n` +
-          '  Creating another would make a second, different coin, so nothing was sent. If the record\n' +
-          '  file was lost or is out of date, send me the transaction link from when that coin was\n' +
-          '  created and I will rebuild the record.',
+        reason: `Could not prepare the price oracle, so nothing was sent:\n  ${firstLine(err)}`,
       };
     }
   }
 
   // A resend must rebuild exactly the recorded coin: the policy id depends on
   // the seed, asset name and supply, so those come from the record, not .env.
+  // So does its text, so that what the summary shows is what lands, whichever
+  // copy lands.
   const recorded = tokenSeed ? deployment.token! : undefined;
   const coin: CoinSpec = recorded
     ? {
         assetName: recorded.name,
         wholeSupply: BigInt(recorded.supply) / 10n ** BigInt(recorded.decimals),
         decimals: recorded.decimals,
-        metadata: { ...r.coin.metadata, decimals: recorded.decimals },
+        metadata: recorded.metadata ?? { ...r.coin.metadata, decimals: recorded.decimals },
       }
     : r.coin;
+  if (recorded?.metadata && JSON.stringify(recorded.metadata) !== JSON.stringify(r.coin.metadata)) {
+    r.log('It keeps the name and description of the earlier attempt; changes in .env can be');
+    r.log('made after the coin exists, with the update command.');
+  }
 
   if (
     !(await r.confirm(deploySummary({ ...r, coin }, address, lovelace, tokenAction, oracleAction)))
   ) {
     return { kind: 'cancelled' };
+  }
+
+  // ---- look again: the reader may have taken a while to answer. An earlier
+  // attempt may have landed meanwhile, or another computer made a coin. ----
+  if (tokenAction === 'create') {
+    let latest: UTxO[];
+    try {
+      latest = await lucid.wallet().getUtxos();
+    } catch (err) {
+      return { kind: 'refused', reason: walletUnreadable(err) };
+    }
+    if (recorded) {
+      const reference = await findUnit(lucid, recorded.metadataAddress, recorded.referenceUnit);
+      if (reference) {
+        deployment = { ...deployment, token: confirmedCoin(recorded, reference) };
+        r.save(deployment);
+        r.log('✔ The MCH coin from the earlier run is confirmed on the network.');
+        tokenAction = 'none';
+      } else if (!latest.some((u) => sameRef(u, recorded.seed))) {
+        return { kind: 'pending', what: 'coin', txHash: recorded.mintTx };
+      }
+    }
+    if (tokenAction === 'create' && !r.allowSecondCoin) {
+      const refusal = secondCoin(latest);
+      if (refusal) return refusal;
+    }
   }
 
   // ---- the coin ----
@@ -307,12 +372,17 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
         admin: prepared.settings.admin,
         seed: prepared.settings.seed,
         metadataAddress: prepared.metadataAddress,
+        metadata,
         mintTx: prepared.txHash,
         status: 'submitted',
       },
     };
-    r.save(deployment); // before sending: nothing can reach the chain unrecorded
-    r.log('Creating the MCH coin...');
+    try {
+      r.save(deployment); // before sending: nothing can reach the chain unrecorded
+    } catch (err) {
+      return { kind: 'refused', reason: unsaved(err) };
+    }
+    r.log(`Creating the ${assetName} coin...`);
     try {
       await prepared.submit();
     } catch (err) {
@@ -342,8 +412,8 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     try {
       prepared = await prepareOracle(lucid, {
         basket,
-        operator: r.operator(),
-        pricesMicro: await r.genesisPrices(),
+        operator: oracleInputs!.operator,
+        pricesMicro: oracleInputs!.prices,
         now: r.now(),
         publishReferenceScript: true,
         seed: oracleResend?.seed,
@@ -375,7 +445,11 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
         status: 'submitted',
       },
     };
-    r.save(deployment);
+    try {
+      r.save(deployment);
+    } catch (err) {
+      return { kind: 'refused', reason: unsaved(err) };
+    }
     r.log('Creating the price oracle...');
     try {
       await prepared.submit();
@@ -420,8 +494,9 @@ export function deploySummary(
     const { metadata: m, wholeSupply, decimals, assetName } = r.coin;
     out.push(
       '',
-      '  Create the MCH coin',
-      `    Name         ${m.name} (ticker ${m.ticker}, asset name ${assetName})`,
+      `  Create the ${assetName} coin`,
+      `    Asset name   ${assetName}   (permanent: the coin's identity on Cardano)`,
+      `    Name         ${m.name} (ticker ${m.ticker})`,
       `    Total supply ${wholeSupply.toLocaleString('en-GB')} coins, ${decimals} decimal places`,
       `    Description  ${m.description}`,
       `    Logo         ${m.logo ?? '(none; can be added later)'}`,
