@@ -5,7 +5,7 @@ Written for someone new to all of this. Each step says what it does and why.
 ## 1. Run the website on your computer
 
 1. Install **Node.js 22.18 or newer** from https://nodejs.org (the "LTS" button).
-2. Get the code: `git clone -b claude/mch-metal-chain-token-paf9ps https://github.com/jefy381996/MCH.git`, then `cd MCH`.
+2. Get the code: `git clone https://github.com/jefy381996/MCH.git`, then `cd MCH`.
 3. Install the project's libraries: `npm install` (takes a minute).
 4. Start everything: `npm run dev`.
 5. Open **http://localhost:5173** in your browser.

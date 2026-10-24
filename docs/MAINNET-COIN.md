@@ -66,7 +66,7 @@ version from nodejs.org again.
 Type these one at a time, pressing Enter after each:
 
 ```bash
-git clone -b claude/mch-metal-chain-token-paf9ps https://github.com/jefy381996/MCH.git
+git clone https://github.com/jefy381996/MCH.git
 cd MCH
 npm install
 ```
