@@ -61,8 +61,18 @@ export type DeployOutcome =
   | { kind: 'done'; deployment: Deployment }
   | { kind: 'refused'; reason: string }
   | { kind: 'cancelled' }
-  /** Sent (or possibly sent) and recorded, but not confirmed yet. Re-running finishes the job. */
-  | { kind: 'pending'; what: 'coin' | 'oracle'; txHash: string; sendError?: string };
+  /**
+   * Sent (or possibly sent) and recorded, but not confirmed yet. Re-running
+   * finishes the job. `resent`: this run sent a new copy of an earlier
+   * attempt, which may itself still be on its way.
+   */
+  | {
+      kind: 'pending';
+      what: 'coin' | 'oracle';
+      txHash: string;
+      sendError?: string;
+      resent?: boolean;
+    };
 
 const ada = (lovelace: bigint) => (Number(lovelace) / 1e6).toLocaleString('en-GB');
 const firstLine = (err: unknown) =>
@@ -167,7 +177,7 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     } else if (utxos.some((u) => sameRef(u, t.seed))) {
       // The mint spends this UTxO and the network still shows it, so the earlier
       // attempt has not landed (it may still be on its way).
-      r.log('The earlier attempt has not reached the network yet, so it will be sent again.');
+      r.log('The network does not show the earlier attempt yet, so it will be sent again.');
       r.log('This is safe: it can only ever make this same coin, and only once.');
       tokenAction = 'create';
       tokenSeed = t.seed;
@@ -267,10 +277,14 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
   if (tokenAction === 'create') {
     const { assetName, decimals, metadata } = coin;
     const supply = recorded ? BigInt(recorded.supply) : coin.wholeSupply * 10n ** BigInt(decimals);
+    const earlierTx = recorded?.mintTx;
     let prepared;
     try {
       prepared = await prepareMint(lucid, { name: assetName, supply, metadata, seed: tokenSeed });
     } catch (err) {
+      // On a resend the usual cause is that the earlier attempt spent the seed
+      // (it landed while the reader was answering): never say nothing happened.
+      if (earlierTx) return { kind: 'pending', what: 'coin', txHash: earlierTx };
       return {
         kind: 'refused',
         reason:
@@ -302,7 +316,11 @@ export async function runDeploy(r: DeployRun): Promise<DeployOutcome> {
     try {
       await prepared.submit();
     } catch (err) {
-      return { kind: 'pending', what: 'coin', txHash: prepared.txHash, sendError: firstLine(err) };
+      const sendError = firstLine(err);
+      // A resend is often refused because the first copy is still on its way.
+      if (earlierTx)
+        return { kind: 'pending', what: 'coin', txHash: earlierTx, sendError, resent: true };
+      return { kind: 'pending', what: 'coin', txHash: prepared.txHash, sendError };
     }
     r.log(`  sent: ${explorerTxUrl(r.network, prepared.txHash)}`);
     r.log('  waiting for the network to confirm it (usually 1-5 minutes)...');

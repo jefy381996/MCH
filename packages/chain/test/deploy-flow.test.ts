@@ -347,7 +347,14 @@ describe('runDeploy: re-running before the network has confirmed', () => {
     const second = await runDeploy(
       run({ existing: first, plan: { token: 'resume', oracle: 'none' }, coin: edited }),
     );
-    expect(second).toMatchObject({ kind: 'pending', what: 'coin' });
+    // The network refuses the new copy (the first spends the same seed): reported as
+    // probably still on its way, pointing at the first copy.
+    expect(second).toMatchObject({
+      kind: 'pending',
+      what: 'coin',
+      resent: true,
+      txHash: first.token!.mintTx,
+    });
     expect(logs).toContain('This is safe: it can only ever make this same coin, and only once.');
     expect(summaries).toHaveLength(2);
     const resent = saved.at(-1)!;
@@ -361,6 +368,29 @@ describe('runDeploy: re-running before the network has confirmed', () => {
     expect(third.kind).toBe('done');
     const record = saved.at(-1)!.token!;
     expect(record).toMatchObject({ status: 'confirmed', mintTx: first.token!.mintTx });
+    expect(emulator.coinPolicies()).toEqual([first.token!.policyId]);
+  });
+
+  it('if the earlier attempt lands while the reader is answering, it never says nothing happened', async () => {
+    const { emulator, run, saved, logs } = await setup();
+    await runDeploy(run(stalled(emulator)));
+    const first = saved.at(-1)!;
+
+    const outcome = await runDeploy(
+      run({
+        existing: first,
+        plan: { token: 'resume', oracle: 'none' },
+        confirm: async () => (emulator.awaitBlock(1), true), // it lands at the prompt
+      }),
+    );
+    expect(outcome).toMatchObject({ kind: 'pending', what: 'coin', txHash: first.token!.mintTx });
+    expect(logs.join('\n')).not.toMatch(/nothing was sent/i);
+
+    const last = await runDeploy(
+      run({ existing: saved.at(-1)!, plan: { token: 'resume', oracle: 'none' } }),
+    );
+    expect(last.kind).toBe('done');
+    expect(saved.at(-1)!.token).toMatchObject({ status: 'confirmed', mintTx: first.token!.mintTx });
     expect(emulator.coinPolicies()).toEqual([first.token!.policyId]);
   });
 

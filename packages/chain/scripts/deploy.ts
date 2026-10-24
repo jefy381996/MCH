@@ -126,14 +126,24 @@ const outcome = await runDeploy({
     console.log(`\n${summary}\n`);
     if (!isMainnet || assumeYes) return true;
     const rl = createInterface({ input: process.stdin, output: process.stdout });
+    let answer: string;
     try {
-      const answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
-      return answer.trim() === 'CREATE';
+      answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
     } catch {
       return false; // Ctrl+C or a closed window: stop, nothing sent
     } finally {
       rl.close();
     }
+    if (answer.trim() !== 'CREATE') return false;
+    // From here on something may be sent; Ctrl+C must not leave the reader guessing.
+    process.once('SIGINT', () => {
+      console.log(
+        '\n\n⏳ Stopped while working. Anything already sent is in the record, so nothing is lost.\n' +
+          `   Wait 10 minutes, then run \`${again}\` again. It finishes the job and never makes a second coin.\n`,
+      );
+      process.exit(130);
+    });
+    return true;
   },
   operator: () =>
     paymentCredentialOf(walletFromSeed(loadSeed('operator'), { network }).address).hash,
@@ -155,9 +165,11 @@ if (outcome.kind === 'cancelled') fail('Stopped. Nothing was sent.');
 if (outcome.kind === 'pending') {
   const what = outcome.what === 'coin' ? 'The MCH coin' : 'The price oracle';
   console.log(
-    outcome.sendError
-      ? `\n⏳ Sending reported a problem: ${outcome.sendError}\n   It may or may not have reached the network.`
-      : `\n⏳ ${what} was sent, but the network has not confirmed it yet.`,
+    !outcome.sendError
+      ? `\n⏳ ${what} was sent, but the network has not confirmed it yet.`
+      : outcome.resent
+        ? `\n⏳ Sending the new copy reported a problem: ${outcome.sendError}\n   Most likely the first copy is still on its way.`
+        : `\n⏳ Sending reported a problem: ${outcome.sendError}\n   It may or may not have reached the network.`,
   );
   console.log(`   Transaction: ${explorerTxUrl(network, outcome.txHash)}`);
   console.log('   The record is saved, so nothing is lost. Do not buy more ADA.');
@@ -175,7 +187,9 @@ if (deployment.token) {
   console.log(`  Your coin: ${explorerTokenUrl(network, deployment.token.fungibleUnit)}`);
   console.log(`  All ${whole.toLocaleString('en-GB')} coins are in the admin wallet.`);
 }
-console.log('  Keep the record file and commit it: it is the public record of what you created.\n');
+console.log(
+  '  Keep the record file: it is the public record of what you created (guide Step 8).\n',
+);
 
 /**
  * Opening prices for the oracle: the live index from the backend if reachable,

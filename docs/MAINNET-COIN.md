@@ -170,8 +170,8 @@ npm run chain:mint-coin
 
 It shows a summary: network, your wallet and balance, the coin's name, the
 total supply, the cost, and what is permanent. **Read it.** If everything is
-right, type `CREATE` and press Enter. Anything else (or Ctrl+C) stops it,
-and nothing is sent.
+right, type `CREATE` and press Enter. Typing anything else (or pressing
+Ctrl+C) at that question stops it, and nothing is sent.
 
 Then you'll see:
 
@@ -184,12 +184,13 @@ Creating the MCH coin...
 Done. Record: ...mainnet.json
   Your coin: https://cardanoscan.io/token/...
   All 100,000,000 coins are in the admin wallet.
-  Keep the record file and commit it: it is the public record of what you created.
+  Keep the record file: it is the public record of what you created (guide Step 8).
 ```
 
-Leave the window open until it says `Done`. The record is saved before
-anything is sent, so nothing can get lost: if the window closes early, or
-the network is slow, the program may say instead:
+After you type `CREATE`, leave the window open until it says `Done`. The
+record is saved before anything is sent, so nothing can get lost. If the
+network is slow, or you close the window or press Ctrl+C early, it may say
+something starting with ⏳ instead, for example:
 
 ```
 ⏳ The MCH coin was sent, but the network has not confirmed it yet.
@@ -197,11 +198,13 @@ the network is slow, the program may say instead:
 
 That's fine. Wait 10 minutes and run `npm run chain:mint-coin` again. It
 checks the network and finishes the job. It will **not** create a second
-coin. If the earlier attempt never reached the network, it says so, shows
-the summary again and asks you to type `CREATE` again: that is expected, and
-sending it again can only ever make that same coin.
+coin. If the network does not show the earlier attempt yet, it says so,
+shows the summary again and asks you to type `CREATE` again: that is
+expected, and sending it again can only ever make that same coin. If that
+then says "Sending the new copy reported a problem", the first copy is
+probably still on its way: wait another 10 minutes and run it again.
 
-If it still says "not confirmed yet" after an hour, stop and send me the
+If it still shows a ⏳ message after an hour, stop and send me the
 `Transaction:` link it shows.
 
 ## Step 7 — See your coins
@@ -266,24 +269,24 @@ easiest way above.
 
 ## If something goes wrong
 
-| You see                                                                                 | It means                                                      | Do this                                                                                                                                                                                                                     |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `running scripts is disabled on this system`                                            | You're in PowerShell, which blocks `npm`                      | Use **Command Prompt** instead (Step 1)                                                                                                                                                                                     |
-| `Could not read package.json` or `ENOENT`                                               | The window is not in the MCH folder                           | Type `cd MCH`, then run the command again                                                                                                                                                                                   |
-| `Unknown file extension ".ts"`                                                          | Node is too old                                               | Install the LTS version from nodejs.org (Step 1)                                                                                                                                                                            |
-| `Real Cardano (Mainnet) is locked`                                                      | Step 3 isn't done                                             | Check the two lines in `.env` and save the file                                                                                                                                                                             |
-| `CARDANO_NETWORK in .env must be`                                                       | A typing mistake in that line                                 | Make it say `CARDANO_NETWORK=Mainnet` and save the file                                                                                                                                                                     |
-| `The admin wallet holds 0 ADA`                                                          | The ADA hasn't arrived, or went to another address            | Wait, then check the address on cardanoscan.io                                                                                                                                                                              |
-| `send it at least 10 ADA first`                                                         | Not enough ADA arrived                                        | Send a few more ADA and run Step 6 again                                                                                                                                                                                    |
-| `Could not build the transaction, so nothing was sent`                                  | Usually a network hiccup. Nothing was spent                   | Run Step 6 again in a few minutes. If the message mentions "collateral", first send 5 more ADA in one withdrawal. If it keeps happening, send me the message                                                                |
-| `TOKEN_LOGO must be a link`                                                             | The logo line in `.env` isn't a proper link                   | Fix it, or put a `#` back at the start of that line                                                                                                                                                                         |
-| `Could not reach the Cardano Mainnet network` or `Could not read the admin wallet`      | Internet problem, or the free Koios service is busy           | Try again in a few minutes. Or make a free **Mainnet** project at https://blockfrost.io, then in `.env` change the existing lines to `CARDANO_PROVIDER=blockfrost` and `BLOCKFROST_PROJECT_ID=` followed by your project id |
-| `⏳ ... sent, but the network has not confirmed it yet` or `Sending reported a problem` | The network is slow, or the connection dropped while sending  | Wait 10 minutes and run `npm run chain:mint-coin` again. It finishes the job and never makes a second coin                                                                                                                  |
-| `This needs you to type a confirmation`                                                 | The window can't take typing (e.g. Git Bash)                  | Use Command Prompt (Windows) or Terminal (Mac)                                                                                                                                                                              |
-| `The MCH coin already exists`                                                           | The coin was already created                                  | Nothing to do: running it again would make a second, different coin, so the program refuses                                                                                                                                 |
-| `This wallet already holds a coin`                                                      | The coin exists but the record file is missing or out of date | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record                                                                                                                    |
-| `Stopped. Nothing was sent.`                                                            | You didn't type `CREATE` exactly, or pressed Ctrl+C           | Run Step 6 again                                                                                                                                                                                                            |
-| `Stopped by an unexpected problem`                                                      | Something outside the program failed (often the record file)  | Read the rest of that message. Fix the problem if you can (for example close the file if it is open), then run Step 6 again. It never makes a second coin                                                                   |
+| You see                                                                            | It means                                                             | Do this                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `running scripts is disabled on this system`                                       | You're in PowerShell, which blocks `npm`                             | Use **Command Prompt** instead (Step 1)                                                                                                                                                                                     |
+| `Could not read package.json` or `ENOENT`                                          | The window is not in the MCH folder                                  | Type `cd MCH`, then run the command again                                                                                                                                                                                   |
+| `Unknown file extension ".ts"`                                                     | Node is too old                                                      | Install the LTS version from nodejs.org (Step 1)                                                                                                                                                                            |
+| `Real Cardano (Mainnet) is locked`                                                 | Step 3 isn't done                                                    | Check the two lines in `.env` and save the file                                                                                                                                                                             |
+| `CARDANO_NETWORK in .env must be`                                                  | A typing mistake in that line                                        | Make it say `CARDANO_NETWORK=Mainnet` and save the file                                                                                                                                                                     |
+| `The admin wallet holds 0 ADA`                                                     | The ADA hasn't arrived, or went to another address                   | Wait, then check the address on cardanoscan.io                                                                                                                                                                              |
+| `send it at least 10 ADA first`                                                    | Not enough ADA arrived                                               | Send a few more ADA and run Step 6 again                                                                                                                                                                                    |
+| `Could not build the transaction, so nothing was sent`                             | Usually a network hiccup. Nothing was spent                          | Run Step 6 again in a few minutes. If the message mentions "collateral", first send 5 more ADA in one withdrawal. If it keeps happening, send me the message                                                                |
+| `TOKEN_LOGO must be a link`                                                        | The logo line in `.env` isn't a proper link                          | Fix it, or put a `#` back at the start of that line                                                                                                                                                                         |
+| `Could not reach the Cardano Mainnet network` or `Could not read the admin wallet` | Internet problem, or the free Koios service is busy                  | Try again in a few minutes. Or make a free **Mainnet** project at https://blockfrost.io, then in `.env` change the existing lines to `CARDANO_PROVIDER=blockfrost` and `BLOCKFROST_PROJECT_ID=` followed by your project id |
+| Anything starting with `⏳`                                                        | The network is slow, the connection dropped, or it was stopped early | Wait 10 minutes and run `npm run chain:mint-coin` again. It finishes the job and never makes a second coin                                                                                                                  |
+| `This needs you to type a confirmation`                                            | The window can't take typing (e.g. Git Bash)                         | Use Command Prompt (Windows) or Terminal (Mac)                                                                                                                                                                              |
+| `The MCH coin already exists`                                                      | The coin was already created                                         | Nothing to do: running it again would make a second, different coin, so the program refuses                                                                                                                                 |
+| `This wallet already holds a coin`                                                 | The coin exists but the record file is missing or out of date        | Don't create another. Send me the transaction link from when it was created, and I'll rebuild the record                                                                                                                    |
+| `Stopped. Nothing was sent.`                                                       | You didn't type `CREATE` exactly, or pressed Ctrl+C                  | Run Step 6 again                                                                                                                                                                                                            |
+| `Stopped by an unexpected problem`                                                 | Something outside the program failed (often the record file)         | Read the rest of that message. Fix the problem if you can (for example close the file if it is open), then run Step 6 again. It never makes a second coin                                                                   |
 
 ## After the coin exists
 
