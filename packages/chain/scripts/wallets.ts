@@ -4,11 +4,29 @@
  * Creates the two wallets the oracle needs (if they do not exist yet) and
  * prints their addresses so you can fund them from the testnet faucet.
  */
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { addressOf, ensureSeed, loadSeed, SECRETS_DIR, type Role } from '../src/secrets.ts';
-import { connectOptionsFromEnv, fail } from './env.ts';
+import { knownMainnetWallets, rememberMainnetWallet } from '../src/wallet-registry.ts';
+import { connectOptionsFromEnv, fail, REPO_ROOT } from './env.ts';
 
 const { network } = connectOptionsFromEnv();
 const isMainnet = network === 'Mainnet';
+
+// A new Mainnet wallet when this computer already made one is almost always a
+// re-downloaded or renamed MCH folder: the new wallet would not know about a
+// coin made with the old one. `--new-wallet` is for when it really is wanted.
+const makingAdmin = !process.env.ADMIN_SEED && !existsSync(join(SECRETS_DIR, 'admin.seed'));
+const [known] = knownMainnetWallets();
+if (isMainnet && makingAdmin && known && !process.argv.includes('--new-wallet')) {
+  fail(
+    `This computer already made a Mainnet MCH wallet: ${known.address}\n` +
+      `  (first seen in ${known.folder}). A new wallet would not know about a coin made\n` +
+      '  with that one, so none was made. Nothing was sent.\n' +
+      '  If you renamed, moved or downloaded the MCH folder again, use the old folder: its\n' +
+      '  secrets folder holds that wallet. If you really need a new wallet, ask me.',
+  );
+}
 const roles: Array<[Role, string]> = [
   ['admin', 'cold key: deploys the oracle and token, can rotate the operator key'],
   [
@@ -28,6 +46,7 @@ for (const [role, purpose] of roles) {
   } catch (err) {
     fail(err instanceof Error ? err.message : String(err));
   }
+  if (isMainnet && role === 'admin') rememberMainnetWallet(address, REPO_ROOT);
   console.log(`  ${role.padEnd(9)} ${address}`);
   console.log(`  ${''.padEnd(9)} ${purpose}${created ? '  [NEW]' : ''}\n`);
 }
