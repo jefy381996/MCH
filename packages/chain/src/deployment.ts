@@ -127,7 +127,11 @@ export function saveDeployment(path: string, deployment: Deployment): void {
   } catch {
     // Windows can refuse to replace a file another program has open.
     writeFileSync(path, text);
-    rmSync(copy, { force: true });
+    try {
+      rmSync(copy, { force: true });
+    } catch {
+      // the record is already in place; the copy is harmless
+    }
   }
 }
 

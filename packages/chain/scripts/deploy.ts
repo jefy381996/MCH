@@ -8,7 +8,7 @@
  * src/deploy-flow.ts, where they are tested against an emulated ledger.
  */
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, relative } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { paymentCredentialOf, walletFromSeed } from '@lucid-evolution/lucid';
 import { parseBasket, snapshotFromDTO, type IndexSnapshotDTO } from '@mch/index-core';
@@ -27,6 +27,7 @@ import {
   connectOrExit,
   deploymentFileFromEnv,
   fail,
+  REPO_ROOT,
   repoPath,
 } from './env.ts';
 
@@ -48,10 +49,11 @@ mkdirSync(dirname(deploymentFile), { recursive: true });
 const lockFile = `${deploymentFile}.lock`;
 const lock = acquireRunLock(lockFile);
 if (!lock.ok) {
+  const lockName = relative(REPO_ROOT, lockFile);
   fail(
     'This is already running in another window, so this one stopped. Nothing was sent.\n' +
-      '  Finish or close the other window first. If no other window is open, delete this file\n' +
-      `  and run it again: ${lockFile}`,
+      '  Finish or close the other window first. If no other window is open, type this and\n' +
+      `  then run it again:  ${process.platform === 'win32' ? 'del' : 'rm'} "${lockName}"`,
   );
 }
 process.on('exit', () => lock.release());
@@ -155,17 +157,18 @@ const outcome = await runDeploy({
   },
   async confirm(summary) {
     console.log(`\n${summary}\n`);
-    if (!isMainnet || assumeYes) return true;
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    let answer: string;
-    try {
-      answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
-    } catch {
-      return false; // Ctrl+C or a closed window: stop, nothing sent
-    } finally {
-      rl.close();
+    if (isMainnet && !assumeYes) {
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      let answer: string;
+      try {
+        answer = await rl.question('Type CREATE to go ahead, or anything else to stop: ');
+      } catch {
+        return false; // Ctrl+C or a closed window: stop, nothing sent
+      } finally {
+        rl.close();
+      }
+      if (answer.trim() !== 'CREATE') return false;
     }
-    if (answer.trim() !== 'CREATE') return false;
     // From here on something may be sent; Ctrl+C must not leave the reader guessing.
     process.once('SIGINT', () => {
       console.log(
@@ -192,14 +195,23 @@ const outcome = await runDeploy({
 );
 
 if (outcome.kind === 'refused') fail(outcome.reason);
-if (outcome.kind === 'cancelled') fail('Stopped. Nothing was sent.');
+if (outcome.kind === 'cancelled') {
+  fail(
+    outcome.earlier
+      ? 'Stopped. Nothing new was sent, but the earlier attempt may still reach the network.\n' +
+          `  Wait 10 minutes, then run \`${again}\` again to check. It never makes a second coin.`
+      : 'Stopped. Nothing was sent.',
+  );
+}
 if (outcome.kind === 'pending') {
   const what = outcome.what === 'coin' ? 'The MCH coin' : 'The price oracle';
   console.log(
     !outcome.sendError
       ? `\n⏳ ${what} was sent, but the network has not confirmed it yet.`
       : outcome.resent
-        ? `\n⏳ Sending the new copy reported a problem: ${outcome.sendError}\n   Most likely the first copy is still on its way.`
+        ? `\n⏳ Sending the new copy reported a problem: ${outcome.sendError}\n` +
+          '   If the first copy reached the network, it is still on its way (this is the usual reason);\n' +
+          '   if not, nothing has been sent yet.'
         : `\n⏳ Sending reported a problem: ${outcome.sendError}\n   It may or may not have reached the network.`,
   );
   console.log(`   Transaction: ${explorerTxUrl(network, outcome.txHash)}`);

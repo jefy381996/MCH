@@ -48,12 +48,12 @@ const policiesIn = (utxos: UTxO[]) => [...new Set(cip68Coins(utxos).map((c) => c
  */
 class ChainTipEmulator extends Emulator {
   failSubmits = 0;
-  #failReads = new Map<string, number>();
+  #failReads = new Map<string, { left: number; skip: number }>();
   #inFlight: UTxO[] = [];
 
-  /** The next `times` reads at `address` fail. */
-  failReadsAt(address: string, times: number) {
-    this.#failReads.set(address, times);
+  /** The next `times` reads at `address` fail, after letting `skip` reads through. */
+  failReadsAt(address: string, times: number, skip = 0) {
+    this.#failReads.set(address, { left: times, skip });
   }
 
   /** Every coin policy anywhere on the confirmed ledger. */
@@ -101,9 +101,13 @@ class ChainTipEmulator extends Emulator {
   }
 
   #maybeFail(at: string | Credential) {
-    for (const [address, left] of this.#failReads) {
-      if (left > 0 && matches(address, at)) {
-        this.#failReads.set(address, left - 1);
+    for (const [address, plan] of this.#failReads) {
+      if (plan.left > 0 && matches(address, at)) {
+        if (plan.skip > 0) {
+          plan.skip--;
+          continue;
+        }
+        plan.left--;
         throw new Error('429 Too Many Requests');
       }
     }
@@ -209,7 +213,9 @@ describe('runDeploy: creating the coin', () => {
   it('sends nothing when the confirmation is declined', async () => {
     const { run, saved, wallet } = await setup();
     const before = await wallet();
-    expect(await runDeploy(run({ confirm: async () => false }))).toEqual({ kind: 'cancelled' });
+    expect(await runDeploy(run({ confirm: async () => false }))).toMatchObject({
+      kind: 'cancelled',
+    });
     expect(saved).toEqual([]);
     expect(await wallet()).toEqual(before);
   });
@@ -593,6 +599,89 @@ describe('runDeploy: two runs, or a different wallet', () => {
     expect(summaries).toEqual([]);
     expect(saved).toEqual([]);
     expect(emulator.coinPolicies()).toEqual([]);
+  });
+});
+
+describe('runDeploy: runs from two record files', () => {
+  it('a second folder run while the first send is on its way builds the same coin, so only one lands', async () => {
+    const { emulator, run, saved } = await setup([30_000_000n, 30_000_000n]);
+    expect(await runDeploy(run(stalled(emulator)))).toMatchObject({ kind: 'pending' });
+    const first = saved.at(-1)!;
+    // Another folder: no record, and the network does not show the first send yet.
+    const other = await runDeploy(run({ existing: null }));
+    expect(other).toMatchObject({ kind: 'pending', what: 'coin' });
+    expect(saved.at(-1)!.token!.seed).toEqual(first.token!.seed);
+    expect(saved.at(-1)!.token!.policyId).toBe(first.token!.policyId);
+    emulator.awaitBlock(1);
+    expect(emulator.coinPolicies()).toEqual([first.token!.policyId]);
+  });
+});
+
+describe('runDeploy: honest messages when resending', () => {
+  it('declining to resend says the earlier attempt may still land', async () => {
+    const { emulator, run, saved } = await setup();
+    emulator.failSubmits = 1;
+    await runDeploy(run());
+    const outcome = await runDeploy(
+      run({
+        existing: saved.at(-1)!,
+        plan: { token: 'resume', oracle: 'none' },
+        confirm: async () => false,
+      }),
+    );
+    expect(outcome).toEqual({ kind: 'cancelled', earlier: true });
+    expect(await runDeploy(run({ confirm: async () => false }))).toEqual({
+      kind: 'cancelled',
+      earlier: false,
+    });
+  });
+
+  it('a resend it cannot build, with the seed still there, says nothing new was sent', async () => {
+    const { emulator, admin, run, saved } = await setup();
+    emulator.failSubmits = 1;
+    await runDeploy(run());
+    // Reads: the start, the second look after CREATE, then the build's own read fails.
+    emulator.failReadsAt(admin.address, 1, 2);
+    const outcome = await runDeploy(
+      run({ existing: saved.at(-1)!, plan: { token: 'resume', oracle: 'none' } }),
+    );
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toMatch(
+      /Could not build the transaction, so nothing new was sent:\s+429/,
+    );
+    expect(emulator.coinPolicies()).toEqual([]);
+  });
+
+  it('an earlier oracle attempt that lands while the reader is answering is reported as pending', async () => {
+    const { emulator, run, saved, coinRecord } = await withCoin();
+    await runDeploy(
+      run({
+        existing: coinRecord,
+        plan: { token: 'none', oracle: 'create' },
+        ...stalled(emulator),
+      }),
+    );
+    const first = saved.at(-1)!;
+    const outcome = await runDeploy(
+      run({
+        existing: first,
+        plan: { token: 'none', oracle: 'resume' },
+        confirm: async () => (emulator.awaitBlock(1), true),
+      }),
+    );
+    expect(outcome).toMatchObject({
+      kind: 'pending',
+      what: 'oracle',
+      txHash: first.oracle!.createTx,
+    });
+    const next = await runDeploy(
+      run({ existing: first, plan: { token: 'none', oracle: 'resume' } }),
+    );
+    expect(next.kind).toBe('done');
+    expect(saved.at(-1)!.oracle).toMatchObject({
+      status: 'confirmed',
+      policyId: first.oracle!.policyId,
+    });
   });
 });
 
