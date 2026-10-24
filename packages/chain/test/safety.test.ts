@@ -13,6 +13,7 @@ import { repeatedKeys } from '../scripts/env.ts';
 import { loadDeployment, saveDeployment, type Deployment } from '../src/deployment.ts';
 import { acquireRunLock } from '../src/run-lock.ts';
 import { loadSeed } from '../src/secrets.ts';
+import { knownMainnetWallets, rememberMainnetWallet } from '../src/wallet-registry.ts';
 
 const folder = () => mkdtempSync(join(tmpdir(), 'mch-safety-'));
 /** The id of a process that has already ended. */
@@ -111,5 +112,21 @@ describe('the record file', () => {
     expect(loadDeployment(path)).toEqual(record);
     writeFileSync(path, '{"network": "Mainnet", "deployedAt"');
     expect(() => loadDeployment(path)).toThrow(/could not be read/);
+  });
+});
+
+describe('the note of Mainnet wallets made on this computer', () => {
+  it('remembers each wallet once, with the folder it was first seen in', () => {
+    const dir = folder();
+    expect(knownMainnetWallets(dir)).toEqual([]);
+    rememberMainnetWallet('addr1qxyz', '/Users/me/MCH', dir);
+    rememberMainnetWallet('addr1qxyz', '/Users/me/MCH-copy', dir); // same wallet, renamed folder
+    expect(knownMainnetWallets(dir)).toEqual([{ address: 'addr1qxyz', folder: '/Users/me/MCH' }]);
+  });
+
+  it('never stops the caller when the note cannot be written', () => {
+    const file = join(folder(), 'not-a-folder');
+    writeFileSync(file, '');
+    expect(() => rememberMainnetWallet('addr1qxyz', '/x', file)).not.toThrow();
   });
 });
