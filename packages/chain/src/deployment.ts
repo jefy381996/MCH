@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { parseBasket, serializeBasket, type Basket, type BasketFile } from '@mch/index-core';
-import type { OutRef, OracleSettings } from './codec.ts';
+import type { OracleSettings, OutRef, TokenMetadata } from './codec.ts';
 import type { NetworkName } from './network.ts';
 
 export interface OracleDeployment {
@@ -34,6 +34,8 @@ export interface TokenDeployment {
   admin: string;
   seed: OutRef;
   metadataAddress: string;
+  /** The name, ticker, description and logo it was created with (records from before this have none). */
+  metadata?: TokenMetadata;
   mintTx: string;
   /** 'submitted' until the network has confirmed it. Absent means confirmed. */
   status?: DeployStatus;
@@ -104,12 +106,29 @@ export function planDeployment(existing: Deployment | null, o: { tokenOnly: bool
 }
 
 export function loadDeployment(path: string): Deployment {
-  return JSON.parse(readFileSync(path, 'utf8')) as Deployment;
+  const text = readFileSync(path, 'utf8').replace(/^\uFEFF/, ''); // a BOM some editors add
+  try {
+    return JSON.parse(text) as Deployment;
+  } catch {
+    throw new Error(
+      `${path} could not be read (it may have been changed in an editor, or only partly written).`,
+    );
+  }
 }
 
+/** Writes a full copy first and swaps it in, so a crash mid-write cannot damage the record. */
 export function saveDeployment(path: string, deployment: Deployment): void {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(deployment, null, 2)}\n`);
+  const text = `${JSON.stringify(deployment, null, 2)}\n`;
+  const copy = `${path}.tmp`;
+  writeFileSync(copy, text);
+  try {
+    renameSync(copy, path);
+  } catch {
+    // Windows can refuse to replace a file another program has open.
+    writeFileSync(path, text);
+    rmSync(copy, { force: true });
+  }
 }
 
 export function oracleSettingsOf(d: Deployment): OracleSettings {

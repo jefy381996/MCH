@@ -219,7 +219,7 @@ describe('runDeploy: creating the coin', () => {
     const outcome = await runDeploy(run());
     expect(outcome.kind).toBe('refused');
     expect(outcome.kind === 'refused' && outcome.reason).toMatch(
-      /holds 8 ADA; send it at least 10 ADA/,
+      /holds 8 ADA but needs at least 10 ADA, so nothing was sent\.\s+Send at least 2 more ADA/,
     );
     expect(summaries).toEqual([]);
   });
@@ -341,7 +341,7 @@ describe('runDeploy: re-running before the network has confirmed', () => {
     const first = saved.at(-1)!;
 
     // Re-run straight away, after editing the description: the network still shows the
-    // seed as unspent, so the coin is rebuilt (with different bytes) and sent again.
+    // seed as unspent, so the recorded coin is rebuilt and sent again.
     const coin = run().coin;
     const edited = { ...coin, metadata: { ...coin.metadata, description: 'Typo fixed' } };
     const second = await runDeploy(
@@ -357,9 +357,13 @@ describe('runDeploy: re-running before the network has confirmed', () => {
     });
     expect(logs).toContain('This is safe: it can only ever make this same coin, and only once.');
     expect(summaries).toHaveLength(2);
+    // What it shows is what lands, whichever copy lands: the text it was first made with.
+    expect(summaries[1]).toMatch(/Description\s+Test coin/);
+    expect(logs.join('\n')).toMatch(/keeps the name and description of the earlier attempt/);
     const resent = saved.at(-1)!;
     expect(resent.token!.policyId).toBe(first.token!.policyId);
-    expect(resent.token!.mintTx).not.toBe(first.token!.mintTx);
+    // Same seed and the recorded text: the resend is the very same transaction.
+    expect(resent.token!.mintTx).toBe(first.token!.mintTx);
 
     emulator.awaitBlock(1); // the first send lands; the resend never can
     const third = await runDeploy(
@@ -371,10 +375,11 @@ describe('runDeploy: re-running before the network has confirmed', () => {
     expect(emulator.coinPolicies()).toEqual([first.token!.policyId]);
   });
 
-  it('if the earlier attempt lands while the reader is answering, it never says nothing happened', async () => {
+  it('if the earlier attempt lands while the reader is answering, it records it and sends nothing', async () => {
     const { emulator, run, saved, logs } = await setup();
     await runDeploy(run(stalled(emulator)));
     const first = saved.at(-1)!;
+    const from = logs.length;
 
     const outcome = await runDeploy(
       run({
@@ -383,15 +388,40 @@ describe('runDeploy: re-running before the network has confirmed', () => {
         confirm: async () => (emulator.awaitBlock(1), true), // it lands at the prompt
       }),
     );
-    expect(outcome).toMatchObject({ kind: 'pending', what: 'coin', txHash: first.token!.mintTx });
-    expect(logs.join('\n')).not.toMatch(/nothing was sent/i);
-
-    const last = await runDeploy(
-      run({ existing: saved.at(-1)!, plan: { token: 'resume', oracle: 'none' } }),
-    );
-    expect(last.kind).toBe('done');
+    expect(outcome.kind).toBe('done');
+    const said = logs.slice(from);
+    expect(said).toContain('✔ The MCH coin from the earlier run is confirmed on the network.');
+    expect(said).not.toContain('Creating the MCH coin...');
     expect(saved.at(-1)!.token).toMatchObject({ status: 'confirmed', mintTx: first.token!.mintTx });
     expect(emulator.coinPolicies()).toEqual([first.token!.policyId]);
+  });
+
+  it('if the seed is spent while the reader is answering but the coin is not visible yet, it reports pending', async () => {
+    const { emulator, lucid, admin, run, saved } = await setup();
+    emulator.failSubmits = 1;
+    await runDeploy(run());
+    const first = saved.at(-1)!;
+    const [seed] = await lucid.utxosByOutRef([first.token!.seed]);
+
+    const outcome = await runDeploy(
+      run({
+        existing: first,
+        plan: { token: 'resume', oracle: 'none' },
+        // Something else spends the seed while the reader reads the summary.
+        confirm: async () => {
+          const move = await lucid
+            .newTx()
+            .collectFrom([seed!])
+            .pay.ToAddress(admin.address, { lovelace: 2_000_000n })
+            .complete();
+          await (await move.sign.withWallet().complete()).submit();
+          emulator.awaitBlock(1);
+          return true;
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({ kind: 'pending', what: 'coin', txHash: first.token!.mintTx });
+    expect(emulator.coinPolicies()).toEqual([]);
   });
 
   it('a quick oracle re-run records the transaction that landed and its reference script', async () => {
@@ -506,6 +536,66 @@ describe('runDeploy: the second-coin guard', () => {
   });
 });
 
+describe('runDeploy: two runs, or a different wallet', () => {
+  it('a run left waiting at the prompt while another makes the coin does not make a second one', async () => {
+    const { emulator, run, saved, summaries } = await setup();
+    let answer!: (yes: boolean) => void;
+    let asked!: () => void;
+    const atPrompt = new Promise<void>((done) => (asked = done));
+    // Window B: shown the summary, not yet answered.
+    const b = runDeploy(
+      run({
+        confirm: () => (asked(), new Promise<boolean>((done) => (answer = done))),
+      }),
+    );
+    await atPrompt;
+    // Window A: run start to finish.
+    expect((await runDeploy(run())).kind).toBe('done');
+    const records = saved.length;
+    // Then the reader types CREATE in window B.
+    answer(true);
+    const outcome = await b;
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toMatch(/already holds a coin: MCH/);
+    expect(saved).toHaveLength(records); // the record of coin A is untouched
+    expect(summaries).toHaveLength(1);
+    expect(emulator.coinPolicies()).toHaveLength(1);
+  });
+
+  it('refuses to finish an earlier attempt with a different admin wallet', async () => {
+    const { emulator, lucid, run, saved, summaries } = await setup();
+    emulator.failSubmits = 1;
+    await runDeploy(run());
+    const record = saved.at(-1)!;
+    lucid.selectWallet.fromSeed(generateEmulatorAccount({ lovelace: 0n }).seedPhrase);
+    const outcome = await runDeploy(
+      run({ existing: record, plan: { token: 'resume', oracle: 'none' } }),
+    );
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toMatch(/different admin wallet/);
+    expect(summaries).toHaveLength(1); // only the first run's
+  });
+
+  it("gets the oracle's opening prices before asking, so a failure there sends nothing", async () => {
+    const { emulator, run, saved, summaries } = await setup(120_000_000n);
+    const outcome = await runDeploy(
+      run({
+        plan: { token: 'create', oracle: 'create' },
+        genesisPrices: async () => {
+          throw new Error('price backend unreachable');
+        },
+      }),
+    );
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toMatch(
+      /Could not prepare the price oracle, so nothing was sent:\s+price backend unreachable/,
+    );
+    expect(summaries).toEqual([]);
+    expect(saved).toEqual([]);
+    expect(emulator.coinPolicies()).toEqual([]);
+  });
+});
+
 describe('runDeploy: provider and disk problems', () => {
   it('a wallet it cannot read sends nothing, and says so', async () => {
     const { emulator, admin, run, saved, summaries } = await setup();
@@ -533,7 +623,7 @@ describe('runDeploy: provider and disk problems', () => {
     expect(emulator.coinPolicies()).toEqual([record.token!.policyId]);
   });
 
-  it('if the record cannot be written before sending, nothing is sent', async () => {
+  it('if the record cannot be written before sending, nothing is sent, and it says so', async () => {
     const { emulator, run, wallet } = await setup();
     const before = await wallet();
     const failing = run({
@@ -541,7 +631,11 @@ describe('runDeploy: provider and disk problems', () => {
         throw new Error('EPERM: operation not permitted');
       },
     });
-    await expect(runDeploy(failing)).rejects.toThrow(/EPERM/);
+    const outcome = await runDeploy(failing);
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toMatch(
+      /Could not save the record file, so nothing was sent:\s+EPERM/,
+    );
     emulator.awaitBlock(1);
     expect(await wallet()).toEqual(before);
     expect(emulator.coinPolicies()).toEqual([]);
