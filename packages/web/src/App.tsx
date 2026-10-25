@@ -1,75 +1,72 @@
-import { useEffect, useState } from 'react';
-import { BasketTable } from './components/BasketTable.tsx';
-import { DemoBanner } from './components/DemoBanner.tsx';
+import { useEffect, type ComponentType } from 'react';
 import { Footer } from './components/Footer.tsx';
 import { Header } from './components/Header.tsx';
-import { Hero } from './components/Hero.tsx';
-import { History } from './components/History.tsx';
-import { Methodology } from './components/Methodology.tsx';
-import { OnChain } from './components/OnChain.tsx';
-import { Token } from './components/Token.tsx';
-import { getJSON, type BasketPayload, type OraclePayload } from './lib/api.ts';
-import { useLiveIndex } from './lib/useLiveIndex.ts';
+import { useLocation } from './lib/router.tsx';
+import { SiteDataProvider } from './lib/site-data.tsx';
+import { About } from './pages/About.tsx';
+import { Faq } from './pages/Faq.tsx';
+import { Home } from './pages/Home.tsx';
+import { HowItWorks } from './pages/HowItWorks.tsx';
+import { Legal } from './pages/Legal.tsx';
+import { LiveIndex } from './pages/LiveIndex.tsx';
+import { NotFound } from './pages/NotFound.tsx';
+import { Roadmap } from './pages/Roadmap.tsx';
+import { TokenPage } from './pages/TokenPage.tsx';
 
-const ORACLE_REFRESH_MS = 60_000;
+const ROUTES: Record<string, { title: string; page: ComponentType }> = {
+  '/': { title: 'MCH · Metal Chain: four metals, one transparent index', page: Home },
+  '/live-index': { title: 'Live MCH Index · MCH', page: LiveIndex },
+  '/token': { title: 'The MCH coin · MCH', page: TokenPage },
+  '/how-it-works': { title: 'How it works · MCH', page: HowItWorks },
+  '/roadmap': { title: 'Roadmap · MCH', page: Roadmap },
+  '/about': { title: 'About · MCH', page: About },
+  '/faq': { title: 'FAQ · MCH', page: Faq },
+  '/legal': { title: 'Important information · MCH', page: Legal },
+};
+const NOT_FOUND = { title: 'Page not found · MCH', page: NotFound };
 
 export function App() {
-  const { data, connection } = useLiveIndex();
-  const [basket, setBasket] = useState<BasketPayload | null>(null);
-  const [oracle, setOracle] = useState<OraclePayload | null>(null);
+  return (
+    <SiteDataProvider>
+      <Site />
+    </SiteDataProvider>
+  );
+}
+
+function Site() {
+  const { path, hash, key } = useLocation();
+  const route = ROUTES[path] ?? NOT_FOUND;
+  const Page = route.page;
 
   useEffect(() => {
-    getJSON<BasketPayload>('/api/basket')
-      .then(setBasket)
-      .catch(() => {});
-    const loadOracle = () =>
-      getJSON<OraclePayload>('/api/oracle')
-        .then(setOracle)
-        // One failed refresh must not wipe what is already known (e.g. that the coin exists).
-        .catch(() =>
-          setOracle((previous) =>
-            previous
-              ? { ...previous, error: 'unreachable' }
-              : {
-                  configured: true,
-                  network: null,
-                  token: null,
-                  oracleDeployed: false,
-                  status: null,
-                  error: 'unreachable',
-                },
-          ),
-        );
-    void loadOracle();
-    const timer = window.setInterval(loadOracle, ORACLE_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, []);
+    document.title = route.title;
+  }, [route]);
 
-  const isDemo = data?.dataSource.isDemo ?? basket?.basket.isDemo ?? false;
-  const network = oracle?.network;
-  const networkLabel = network
-    ? network === 'Mainnet'
-      ? 'Cardano'
-      : `${network} testnet`
-    : 'Not on-chain yet';
+  // A new page starts at the top (or at its #section), and keyboard and
+  // screen-reader users land on its heading rather than back in the header.
+  useEffect(() => {
+    if (key === 0 && !hash) return; // the first load: leave the browser's own position
+    const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    if (target) {
+      target.scrollIntoView();
+      return;
+    }
+    window.scrollTo(0, 0);
+    if (key > 0) document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+  }, [path, hash, key]);
 
   return (
-    <div className="page">
-      <Header networkLabel={networkLabel} />
-      <main>
-        {isDemo && data && <DemoBanner label={data.dataSource.label} />}
-        <Hero data={data} baseDate={basket?.basket.baseDate} connection={connection} />
-        <div style={{ height: 16 }} />
-        <BasketTable data={data} />
-        <History live={data} basket={basket?.basket ?? null} />
-        <div className="grid grid-2" style={{ marginTop: 16 }}>
-          <OnChain oracle={oracle} live={data} />
-          <Token oracle={oracle} />
-        </div>
-        <div style={{ height: 16 }} />
-        <Methodology basket={basket?.basket ?? null} sourceLabel={data?.dataSource.label} />
+    <div className="site">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <Header />
+      <main id="main" className="page">
+        <Page />
       </main>
-      <Footer isDemo={isDemo} />
+      <div className="page">
+        <Footer />
+      </div>
     </div>
   );
 }

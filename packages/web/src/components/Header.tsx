@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Link, usePath } from '../lib/router.tsx';
+import { useSiteData } from '../lib/site-data.tsx';
 
 type Theme = 'system' | 'light' | 'dark';
 const NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
@@ -7,6 +9,15 @@ const LABEL: Record<Theme, string> = {
   light: 'Theme: light',
   dark: 'Theme: dark',
 };
+
+export const NAV = [
+  { to: '/live-index', label: 'Live index' },
+  { to: '/token', label: 'MCH coin' },
+  { to: '/how-it-works', label: 'How it works' },
+  { to: '/roadmap', label: 'Roadmap' },
+  { to: '/about', label: 'About' },
+  { to: '/faq', label: 'FAQ' },
+];
 
 function storedTheme(): Theme {
   try {
@@ -17,8 +28,34 @@ function storedTheme(): Theme {
   }
 }
 
-export function Header({ networkLabel }: { networkLabel: string }) {
+export function Logo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="var(--text-1)" />
+      <path
+        d="M16 6 25 11v10l-9 5-9-5V11z"
+        fill="none"
+        stroke="var(--page)"
+        strokeWidth="2.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M11 19v-6l5 4 5-4v6"
+        fill="none"
+        stroke="var(--gold)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function Header() {
+  const path = usePath();
+  const { networkLabel } = useSiteData();
   const [theme, setTheme] = useState<Theme>(storedTheme);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -32,40 +69,56 @@ export function Header({ networkLabel }: { networkLabel: string }) {
     }
   }, [theme]);
 
+  // A new page closes the phone menu.
+  useEffect(() => setMenuOpen(false), [path]);
+
   return (
-    <header className="header">
-      <div className="brand">
-        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="var(--text-1)" />
-          <path
-            d="M16 6 25 11v10l-9 5-9-5V11z"
-            fill="none"
-            stroke="var(--page)"
-            strokeWidth="2.4"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M11 19v-6l5 4 5-4v6"
-            fill="none"
-            stroke="var(--series-1)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <span>
-          MCH <small>Metal Chain</small>
-        </span>
-      </div>
-      <div className="header-actions">
-        <span className="badge">{networkLabel}</span>
-        <button
-          type="button"
-          onClick={() => setTheme(NEXT[theme])}
-          aria-label={`${LABEL[theme]}. Change theme`}
-        >
-          <ThemeIcon theme={theme} />
-        </button>
+    <header className="site-header">
+      <div className="site-header-inner">
+        <Link to="/" className="brand" aria-label="MCH, Metal Chain: home">
+          <Logo />
+          <span>
+            MCH <small>Metal Chain</small>
+          </span>
+        </Link>
+        <nav id="site-nav" className="site-nav" data-open={menuOpen || undefined} aria-label="Main">
+          <ul>
+            {NAV.map((item) => (
+              <li key={item.to}>
+                <Link to={item.to} aria-current={path === item.to ? 'page' : undefined}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="header-actions">
+          <span className="badge network-badge">{networkLabel}</span>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => setTheme(NEXT[theme])}
+            aria-label={`${LABEL[theme]}. Change theme`}
+          >
+            <ThemeIcon theme={theme} />
+          </button>
+          <button
+            type="button"
+            className="icon-button menu-button"
+            aria-expanded={menuOpen}
+            aria-controls="site-nav"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+              {menuOpen ? (
+                <path d="M4 4l10 10M14 4 4 14" stroke="currentColor" strokeWidth="1.8" />
+              ) : (
+                <path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" strokeWidth="1.8" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
   );

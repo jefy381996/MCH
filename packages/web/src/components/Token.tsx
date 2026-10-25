@@ -17,7 +17,14 @@ type WalletState =
   | { kind: 'connected'; name: string; api: Cip30Api; mch: bigint | null; ada: bigint }
   | { kind: 'error'; message: string };
 
-export function Token({ oracle }: { oracle: OraclePayload | null }) {
+export function Token({
+  oracle,
+  showNotice = true,
+}: {
+  oracle: OraclePayload | null;
+  /** Off where the page already says it, prominently. */
+  showNotice?: boolean;
+}) {
   const token = oracle?.token ?? null;
   const network = oracle?.network ?? undefined;
   const wallets = useMemo<DetectedWallet[]>(() => detectWallets(), []);
@@ -56,20 +63,22 @@ export function Token({ oracle }: { oracle: OraclePayload | null }) {
   return (
     <section className="card" aria-labelledby="token-title">
       <h2 id="token-title">The MCH token</h2>
-      <div className="banner" style={{ background: 'var(--page)' }}>
-        <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="9" fill="var(--series-1)" />
-          <path d="M10 9v5M10 6v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        <div>
-          <strong>Not backed by metal</strong>
-          <p>
-            MCH is not backed by gold, silver, platinum or nickel and cannot be exchanged for them.
-            Its market price is whatever buyers and sellers agree, and can differ from the MCH
-            Index.
-          </p>
+      {showNotice && (
+        <div className="banner" style={{ background: 'var(--page)' }}>
+          <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="9" fill="var(--series-1)" />
+            <path d="M10 9v5M10 6v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <div>
+            <strong>Not backed by metal</strong>
+            <p>
+              MCH is not backed by gold, silver, platinum or nickel and cannot be exchanged for
+              them. Its market price is whatever buyers and sellers agree, and can differ from the
+              MCH Index.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {token ? (
         <dl className="kv">
