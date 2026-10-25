@@ -25,6 +25,16 @@ const ROUTES: Record<string, { title: string; page: ComponentType }> = {
 };
 const NOT_FOUND = { title: 'Page not found · MCH', page: NotFound };
 
+/** Scrolls to an in-page section and gives it focus, so keyboard users continue from there. */
+function goToSection(hash: string): boolean {
+  const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+  if (!target) return false;
+  target.scrollIntoView();
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
+  return true;
+}
+
 export function App() {
   return (
     <SiteDataProvider>
@@ -34,26 +44,43 @@ export function App() {
 }
 
 function Site() {
-  const { path, hash, key } = useLocation();
+  const { path, hash, key, kind } = useLocation();
   const route = ROUTES[path] ?? NOT_FOUND;
   const Page = route.page;
 
   useEffect(() => {
     document.title = route.title;
+    // A page that does not exist should not be indexed as if it did.
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (route === NOT_FOUND) {
+      if (!robots) {
+        robots = document.createElement('meta');
+        robots.name = 'robots';
+        document.head.append(robots);
+      }
+      robots.content = 'noindex';
+    } else {
+      robots?.remove();
+    }
   }, [route]);
 
-  // A new page starts at the top (or at its #section), and keyboard and
-  // screen-reader users land on its heading rather than back in the header.
   useEffect(() => {
-    if (key === 0 && !hash) return; // the first load: leave the browser's own position
-    const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
-    if (target) {
-      target.scrollIntoView();
+    // Back and forward: the browser restores the scroll position itself.
+    if (kind === 'history') return;
+    if (hash) {
+      if (goToSection(hash)) {
+        // Content that loads a moment later (charts, tables) can push the section down.
+        const again = window.setTimeout(() => goToSection(hash), 700);
+        return () => window.clearTimeout(again);
+      }
       return;
     }
+    if (kind === 'load') return;
+    // A new page starts at the top, and keyboard and screen-reader users land
+    // on its heading rather than back in the header.
     window.scrollTo(0, 0);
-    if (key > 0) document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
-  }, [path, hash, key]);
+    document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+  }, [path, hash, key, kind]);
 
   return (
     <div className="site">

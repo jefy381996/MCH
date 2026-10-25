@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, usePath } from '../lib/router.tsx';
 import { useSiteData } from '../lib/site-data.tsx';
 
@@ -56,6 +56,8 @@ export function Header() {
   const { networkLabel } = useSiteData();
   const [theme, setTheme] = useState<Theme>(storedTheme);
   const [menuOpen, setMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -72,8 +74,27 @@ export function Header() {
   // A new page closes the phone menu.
   useEffect(() => setMenuOpen(false), [path]);
 
+  // While open, the phone menu closes on Escape and on a tap anywhere else.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="site-header">
+    <header className="site-header" ref={headerRef}>
       <div className="site-header-inner">
         <Link to="/" className="brand" aria-label="MCH, Metal Chain: home">
           <Logo />
@@ -81,17 +102,6 @@ export function Header() {
             MCH <small>Metal Chain</small>
           </span>
         </Link>
-        <nav id="site-nav" className="site-nav" data-open={menuOpen || undefined} aria-label="Main">
-          <ul>
-            {NAV.map((item) => (
-              <li key={item.to}>
-                <Link to={item.to} aria-current={path === item.to ? 'page' : undefined}>
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
         <div className="header-actions">
           <span className="badge network-badge">{networkLabel}</span>
           <button
@@ -103,6 +113,7 @@ export function Header() {
             <ThemeIcon theme={theme} />
           </button>
           <button
+            ref={menuButtonRef}
             type="button"
             className="icon-button menu-button"
             aria-expanded={menuOpen}
@@ -119,6 +130,23 @@ export function Header() {
             </svg>
           </button>
         </div>
+        {/* After the menu button in reading order, so Tab goes from the button into the menu;
+            on wide screens CSS places it between the logo and the buttons. */}
+        <nav id="site-nav" className="site-nav" data-open={menuOpen || undefined} aria-label="Main">
+          <ul>
+            {NAV.map((item) => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  aria-current={path === item.to ? 'page' : undefined}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </header>
   );

@@ -21,7 +21,13 @@ afterEach(async () => {
   app = undefined;
 });
 
-async function setup(options: { webDistDir?: string; oracle?: OracleReader } = {}) {
+async function setup(
+  options: {
+    webDistDir?: string;
+    oracle?: OracleReader;
+    site?: { operator?: string; contactEmail?: string };
+  } = {},
+) {
   let t = T0;
   const now = () => new Date(t);
   const source = new ScriptedSource();
@@ -122,6 +128,11 @@ describe('other endpoints', () => {
       oracleDeployed: false,
       status: null,
     });
+  });
+
+  it('serves who runs the site only when it is configured', async () => {
+    const { app } = await setup();
+    expect((await app.inject('/api/site')).json()).toEqual({ operator: null, contactEmail: null });
   });
 
   it('reports health and degrades after repeated failures', async () => {
@@ -252,6 +263,18 @@ describe('GET /api/oracle with a deployment', () => {
       token,
       status: null,
       error: 'chain unavailable',
+    });
+  });
+});
+
+describe('GET /api/site', () => {
+  it('serves the operator and contact address when set', async () => {
+    const { app } = await setup({
+      site: { operator: ' Example Ltd ', contactEmail: 'hello@example.co.uk' },
+    });
+    expect((await app.inject('/api/site')).json()).toEqual({
+      operator: 'Example Ltd',
+      contactEmail: 'hello@example.co.uk',
     });
   });
 });

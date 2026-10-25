@@ -4,9 +4,12 @@ import { fmtAgo, fmtLondon, fmtNumber, fmtPct, shorten } from '../lib/format.ts'
 export function OnChain({
   oracle,
   live,
+  heading: Heading = 'h2',
 }: {
   oracle: OraclePayload | null;
   live: IndexPayload | null;
+  /** h3 where the panel sits under a section heading. */
+  heading?: 'h2' | 'h3';
 }) {
   const status = oracle?.status;
   const liveIndex = live?.snapshot ? Number(live.snapshot.index) : null;
@@ -17,7 +20,9 @@ export function OnChain({
 
   return (
     <section className="card" aria-labelledby="chain-title">
-      <h2 id="chain-title">On the Cardano blockchain</h2>
+      <Heading id="chain-title" className="card-title">
+        On the Cardano blockchain
+      </Heading>
       <p className="sub">
         The index is also written to Cardano by the MCH oracle, where anyone can read and verify it.
         The contract rejects any update whose index does not match its own metal prices.

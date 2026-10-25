@@ -39,6 +39,10 @@ const schema = z.object({
   /** Slack-compatible incoming webhook for operational alerts. */
   ALERT_WEBHOOK_URL: z.string().optional(),
 
+  /** Who runs the site and how to reach them, shown on the About and legal pages. Optional. */
+  SITE_OPERATOR: z.string().optional(),
+  CONTACT_EMAIL: z.string().email().optional(),
+
   /** JSON written by `npm run chain:deploy`; enables the on-chain oracle panel. */
   ORACLE_DEPLOYMENT_FILE: repoPath.optional(),
   CARDANO_PROVIDER: z.enum(['koios', 'blockfrost']).default('koios'),

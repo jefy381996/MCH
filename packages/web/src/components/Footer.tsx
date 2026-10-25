@@ -26,12 +26,13 @@ const COLUMNS = [
       { to: '/legal', label: 'Important information' },
       { to: '/legal#risks', label: 'Risk statement' },
       { to: '/legal#privacy', label: 'Privacy' },
+      { to: '/legal#terms', label: 'Terms of use' },
     ],
   },
 ];
 
 export function Footer() {
-  const { isDemo } = useSiteData();
+  const { isDemo, site } = useSiteData();
   return (
     <footer className="site-footer">
       <div className="footer-top">
@@ -43,9 +44,14 @@ export function Footer() {
             </span>
           </Link>
           <p>
-            A transparent index of gold, silver, platinum and nickel, published on the Cardano
-            blockchain. Built in the United Kingdom.
+            A transparent index of gold, silver, platinum and nickel, built for the Cardano
+            blockchain in the United Kingdom.
           </p>
+          {site?.contactEmail && (
+            <p>
+              <a href={`mailto:${site.contactEmail}`}>{site.contactEmail}</a>
+            </p>
+          )}
         </div>
         {COLUMNS.map((column) => (
           <nav key={column.title} className="footer-col" aria-label={column.title}>
@@ -67,7 +73,8 @@ export function Footer() {
           anything.
         </p>
         <p>
-          The MCH Index is calculated by MCH from prices supplied by third parties. It is not an
+          The MCH Index is calculated by MCH from metal prices
+          {isDemo ? ' (simulated during this preview)' : ' supplied by third parties'}. It is not an
           official price of the London Metal Exchange, the LBMA or any other market.
         </p>
         <p>© {new Date().getFullYear()} MCH · Metal Chain</p>

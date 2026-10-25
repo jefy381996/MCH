@@ -22,14 +22,14 @@ const FLOW: Array<{ icon: IconName; title: string; text: string }> = [
 const GUARD_LIMIT: Record<MetalId, string> = { XAU: '5%', XAG: '8%', XPT: '8%', NI: '10%' };
 
 export function HowItWorks() {
-  const { basket } = useSiteData();
+  const { basket, onChain } = useSiteData();
   const components = basket?.basket.components ?? [];
   return (
     <>
       <PageHeader
         eyebrow="How it works"
-        title="From market prices to a verified number on‑chain"
-        lead="The MCH Index is built in four stages. Each one is designed so that the result can be checked independently, not just taken on trust."
+        title={'From market prices to a verified number on‑chain'}
+        lead="From a metal price to the blockchain, each step is designed so that the result can be checked independently, not just taken on trust."
       />
 
       <ol className="flow" aria-label="The journey of a price">
@@ -38,8 +38,10 @@ export function HowItWorks() {
             <span className="feature-icon">
               <Icon name={node.icon} />
             </span>
-            <strong>{node.title}</strong>
-            <span>{node.text}</span>
+            <span className="flow-text">
+              <strong>{node.title}</strong>
+              <span>{node.text}</span>
+            </span>
           </li>
         ))}
       </ol>
@@ -92,8 +94,9 @@ export function HowItWorks() {
               .
             </li>
             <li>
-              If the next three prices agree with each other, the move is real and is accepted. A
-              single wild print never reaches the index; a genuine new level does, a moment later.
+              If three prices in a row agree with each other (within 1%), the move is real and is
+              accepted. A single wild print never reaches the index; a genuine new level does, a
+              moment later.
             </li>
             <li>Prices dated in the future, or not above zero, are rejected outright.</li>
           </ul>
@@ -107,9 +110,9 @@ export function HowItWorks() {
         <div>
           <h2 id="calc-heading">The calculation</h2>
           <p>
-            Each metal&rsquo;s price is divided by its own price on the base date, so a 10% rise
-            counts as 1.10 whatever the metal&rsquo;s unit. Those ratios are weighted, added up and
-            multiplied by 100.
+            Each metal&rsquo;s price is divided by its own base price, so a 10% rise counts as 1.10
+            whatever the metal&rsquo;s unit. Those ratios are weighted, added up and multiplied by
+            100.
           </p>
           <div className="formula">index = 100 × Σ ( weight × price ÷ base price )</div>
           {components.length > 0 && (
@@ -147,10 +150,12 @@ export function HowItWorks() {
             </div>
           )}
           <p>
-            {basket ? `The index was exactly 100 on ${fmtDate(basket.basket.baseDate)}. ` : ''}All
-            arithmetic uses whole numbers of millionths, with a single rounding step at the end. The
-            website, the backend and the on-chain contract share the same rules and the same test
-            cases, so they always agree to the last digit.
+            The index is 100 whenever every metal is at its base price
+            {basket ? `; the base date is ${fmtDate(basket.basket.baseDate)}` : ''}
+            {basket?.basket.isDemo ? ', and its base prices are placeholders for the demo' : ''}.
+            All arithmetic uses whole numbers of millionths, with a single rounding step at the end.
+            The backend and the on-chain contract share the same rules and the same test cases, so
+            they agree to the last digit.
           </p>
         </div>
       </section>
@@ -162,8 +167,9 @@ export function HowItWorks() {
         <div>
           <h2 id="chain-heading">Publishing on Cardano</h2>
           <p>
-            An oracle service writes the index and the four prices behind it to the Cardano
-            blockchain. It publishes whenever the index moves by 0.5%, and at least once an hour.
+            {onChain
+              ? 'An oracle service writes the index and the four prices behind it to the Cardano blockchain. It publishes whenever the index moves by 0.5%, and at least once an hour.'
+              : 'Once licensed prices are connected, an oracle service will write the index and the four prices behind it to the Cardano blockchain. It is designed to publish whenever the index moves by 0.5%, and at least once an hour.'}
           </p>
           <ul className="plain-list">
             <li>
@@ -171,12 +177,12 @@ export function HowItWorks() {
               the posted prices and rejects any update whose index does not match.
             </li>
             <li>
-              <strong>Only the genuine feed counts.</strong> The live feed is marked by a unique
-              token that cannot be copied, so readers always know which data is official.
+              <strong>Only the genuine feed counts.</strong> The feed is marked by a unique token
+              that cannot be copied, so readers always know which data is official.
             </li>
             <li>
-              <strong>Two keys, two jobs.</strong> A routine key signs price updates; a separate,
-              offline key can replace it if it is ever lost or compromised.
+              <strong>Two keys, two jobs.</strong> A routine key signs price updates; a separate
+              admin key can replace it if it is ever lost or compromised.
             </li>
             <li>
               <strong>Low running cost.</strong> Each update costs about 0.26 ADA in network fees.

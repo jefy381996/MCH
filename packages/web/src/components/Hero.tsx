@@ -17,11 +17,15 @@ const STATUS_TEXT = {
   waiting: 'Waiting for prices',
 } as const;
 
-function Delta({ value, label }: { value: number; label: string }) {
+/** A change, read out as words ("up 0.42%") rather than as a triangle glyph. */
+export function Delta({ value, label }: { value: number; label: string }) {
   return (
-    <span aria-label={`${deltaWords(value)} ${fmtPct(Math.abs(value))} ${label}`}>
+    <span>
       <span aria-hidden="true">
         {deltaGlyph(value)} <b>{fmtPct(value)}</b> {label}
+      </span>
+      <span className="visually-hidden">
+        {deltaWords(value)} {fmtPct(Math.abs(value))} {label}
       </span>
     </span>
   );
@@ -36,6 +40,7 @@ export function Hero({
   baseDate?: string;
   connection: Connection;
 }) {
+  const isDemo = data?.dataSource.isDemo ?? false;
   const snapshot = data?.snapshot;
   const state = data?.status ?? 'waiting';
   return (
@@ -44,6 +49,7 @@ export function Hero({
         <div>
           <p className="hero-label" id="hero-label">
             MCH Index
+            {isDemo && <span className="demo-chip">Demo prices</span>}
           </p>
           <p className="hero-value">{snapshot ? fmtNumber(snapshot.index) : '—'}</p>
           {snapshot && (
@@ -58,10 +64,11 @@ export function Hero({
             </div>
           )}
         </div>
-        <div className="status" data-state={state} role="status">
+        <div className="status" data-state={state}>
           <span className="dot" aria-hidden="true" />
           <span>
-            {STATUS_TEXT[state]}
+            {/* Only the state is announced; the clock ticking is not. */}
+            <span role="status">{STATUS_TEXT[state]}</span>
             {snapshot && (
               <>
                 {' · '}

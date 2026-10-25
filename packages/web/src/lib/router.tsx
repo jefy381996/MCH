@@ -21,6 +21,8 @@ export interface Location {
   hash: string;
   /** Changes on every navigation, so effects can react to it. */
   key: number;
+  /** How we got here: the first load, a link, or the browser's back/forward buttons. */
+  kind: 'load' | 'link' | 'history';
 }
 
 /** Re-renders on every navigation, including the browser's back and forward buttons. */
@@ -29,19 +31,23 @@ export function useLocation(): Location {
     path: currentPath(),
     hash: window.location.hash,
     key: 0,
+    kind: 'load',
   }));
   useEffect(() => {
-    const update = () =>
+    const update = (kind: Location['kind']) => () =>
       setLocation((previous) => ({
         path: currentPath(),
         hash: window.location.hash,
         key: previous.key + 1,
+        kind,
       }));
-    window.addEventListener('popstate', update);
-    window.addEventListener(NAVIGATED, update);
+    const onHistory = update('history');
+    const onLink = update('link');
+    window.addEventListener('popstate', onHistory);
+    window.addEventListener(NAVIGATED, onLink);
     return () => {
-      window.removeEventListener('popstate', update);
-      window.removeEventListener(NAVIGATED, update);
+      window.removeEventListener('popstate', onHistory);
+      window.removeEventListener(NAVIGATED, onLink);
     };
   }, []);
   return location;

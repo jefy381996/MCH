@@ -56,6 +56,12 @@ export interface OraclePayload {
   error?: string;
 }
 
+/** Who runs the site, when configured on the server. */
+export interface SitePayload {
+  operator: string | null;
+  contactEmail: string | null;
+}
+
 export async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(path, { signal, headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`${path} returned ${res.status}`);

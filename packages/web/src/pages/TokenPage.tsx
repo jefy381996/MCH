@@ -8,6 +8,7 @@ import { useSiteData } from '../lib/site-data.tsx';
 export function TokenPage() {
   const { oracle, live } = useSiteData();
   const token = oracle?.token ?? null;
+  const planned = token ? '' : ' (planned)';
   const supply = token
     ? `${fmtTokenAmount(BigInt(token.supply), token.decimals)} MCH`
     : '100,000,000 MCH';
@@ -16,14 +17,14 @@ export function TokenPage() {
       <PageHeader
         eyebrow="The MCH coin"
         title="MCH, a native token on Cardano"
-        lead="MCH is the coin of the Metal Chain project. It is created once, with a supply that can never grow, and it lives alongside the MCH Index on the Cardano blockchain."
+        lead="MCH is the coin of the Metal Chain project: a Cardano native token, designed to be created once with a fixed supply, alongside the MCH Index."
       />
 
       <Notice title="Not backed by metal, and not for sale">
         <p>
           MCH is not backed by gold, silver, platinum or nickel and cannot be exchanged for them.
-          Its price is not linked to the MCH Index. MCH is not offered for sale on this site or
-          anywhere else at present. See <Link to="/legal">important information</Link>.
+          Its price is not linked to the MCH Index. MCH is not offered for sale, on this site or
+          anywhere else. See <Link to="/legal">important information</Link>.
         </p>
       </Notice>
 
@@ -35,7 +36,7 @@ export function TokenPage() {
             <dd>Metal Chain (MCH)</dd>
           </div>
           <div>
-            <dt>Total supply</dt>
+            <dt>Total supply{planned}</dt>
             <dd>{supply}</dd>
           </div>
           <div>
@@ -43,8 +44,8 @@ export function TokenPage() {
             <dd>Impossible, enforced by the contract</dd>
           </div>
           <div>
-            <dt>Divisible to</dt>
-            <dd>6 decimal places (0.000001 MCH)</dd>
+            <dt>Divisible to{planned}</dt>
+            <dd>6 decimal places</dd>
           </div>
           <div>
             <dt>Blockchain</dt>
@@ -70,7 +71,7 @@ export function TokenPage() {
           id="design-heading"
           eyebrow="Design"
           title="Simple rules, enforced by code"
-          lead="The coin's contract is deliberately small: the full supply is created once, holders may destroy (burn) their own coins, and no one can ever create more."
+          lead="The coin's contract is deliberately small: the full supply is created once, holders may burn (destroy) their own coins, and no one can ever create more."
         />
         <div className="feature-grid">
           <Feature icon="key" title="Created exactly once">
@@ -78,12 +79,13 @@ export function TokenPage() {
             policy can never approve creating more coins.
           </Feature>
           <Feature icon="coin" title="Fixed supply">
-            All 100,000,000 coins are created together. No one, including the MCH team, can create
-            more later; the supply can only fall, if holders burn coins.
+            All the coins are created together, and no one, including the MCH team, can create more
+            later. Holders can burn their own coins if they choose.
           </Feature>
           <Feature icon="open" title="Readable by wallets">
-            Name, ticker, description and logo follow the CIP-68 standard, so Cardano wallets and
-            explorers show the coin properly.
+            Name, ticker, description and logo follow the CIP-68 standard, so wallets and explorers
+            that support it can show them. The project&rsquo;s admin key can update these details;
+            it can never change the supply.
           </Feature>
         </div>
       </section>
@@ -95,7 +97,7 @@ export function TokenPage() {
             <h3>MCH is</h3>
             <ul className="check-list">
               <li>A native token on the Cardano blockchain</li>
-              <li>Fixed in supply at 100,000,000 coins</li>
+              <li>Designed with a fixed supply</li>
               <li>Part of the Metal Chain project, alongside the MCH Index</li>
               <li>Open to inspection by anyone, on a public blockchain</li>
             </ul>
@@ -105,7 +107,7 @@ export function TokenPage() {
             <ul className="cross-list">
               <li>Backed by, or exchangeable for, any metal</li>
               <li>Priced at, or guaranteed to follow, the MCH Index</li>
-              <li>Offered for sale, on this site or elsewhere, at present</li>
+              <li>Offered for sale, on this site or elsewhere</li>
               <li>A savings product, a deposit or an investment recommendation</li>
             </ul>
           </div>
@@ -117,11 +119,11 @@ export function TokenPage() {
           id="chain-heading"
           eyebrow="On-chain"
           title="Check it yourself"
-          lead="Once the coin exists, its policy id and a link to it on a Cardano explorer appear here. A connected wallet can show its own MCH balance; this site only reads, and never asks you to sign anything."
+          lead="Once the coin exists, its policy id and a link to it on a Cardano explorer appear here, and a connected wallet can show its own MCH balance. This site only reads; it never asks you to sign anything."
         />
         <div className="grid grid-2">
-          <Token oracle={oracle} showNotice={false} />
-          <OnChain oracle={oracle} live={live} />
+          <Token oracle={oracle} showNotice={false} heading="h3" />
+          <OnChain oracle={oracle} live={live} heading="h3" />
         </div>
       </section>
 

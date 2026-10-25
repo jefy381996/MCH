@@ -16,7 +16,7 @@ export function LiveIndex() {
         title="The MCH Index"
         lead="Gold, silver, platinum and nickel, combined into one number that started at 100 on its base date. It updates as prices move."
       />
-      {isDemo && live && <DemoBanner label={live.dataSource.label} />}
+      {isDemo && live && <DemoBanner />}
       <Hero data={live} baseDate={basket?.basket.baseDate} connection={connection} />
       <div className="stack">
         <BasketTable data={live} />

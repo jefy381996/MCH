@@ -1,4 +1,4 @@
-export function DemoBanner({ label }: { label: string }) {
+export function DemoBanner() {
   return (
     <div className="banner" role="note">
       <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
@@ -8,8 +8,8 @@ export function DemoBanner({ label }: { label: string }) {
       <div>
         <strong>Demo data</strong>
         <p>
-          {label}. The numbers on this page move like real metal prices but are generated for
-          testing.
+          The prices on this site are simulated, not real market data. They move like real metal
+          prices but are generated for this preview.
         </p>
       </div>
     </div>

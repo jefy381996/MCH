@@ -39,6 +39,7 @@ const app = await buildServer({
   corsOrigins: corsOrigins(config),
   webDistDir: config.WEB_DIST_DIR,
   logger,
+  site: { operator: config.SITE_OPERATOR, contactEmail: config.CONTACT_EMAIL },
 });
 
 if (basket.isDemo || source.isDemo) {

@@ -1,5 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { getJSON, type BasketPayload, type IndexPayload, type OraclePayload } from './api.ts';
+import {
+  getJSON,
+  type BasketPayload,
+  type IndexPayload,
+  type OraclePayload,
+  type SitePayload,
+} from './api.ts';
 import { useLiveIndex, type Connection } from './useLiveIndex.ts';
 
 const ORACLE_REFRESH_MS = 60_000;
@@ -9,7 +15,10 @@ export interface SiteData {
   connection: Connection;
   basket: BasketPayload | null;
   oracle: OraclePayload | null;
+  site: SitePayload | null;
   isDemo: boolean;
+  /** The price oracle is running on Cardano: only then is the index "published on-chain". */
+  onChain: boolean;
   /** Short label for the header badge, e.g. "Cardano" or "Not on-chain yet". */
   networkLabel: string;
 }
@@ -24,10 +33,14 @@ export function SiteDataProvider({ children }: { children: ReactNode }) {
   const { data: live, connection } = useLiveIndex();
   const [basket, setBasket] = useState<BasketPayload | null>(null);
   const [oracle, setOracle] = useState<OraclePayload | null>(null);
+  const [site, setSite] = useState<SitePayload | null>(null);
 
   useEffect(() => {
     getJSON<BasketPayload>('/api/basket')
       .then(setBasket)
+      .catch(() => {});
+    getJSON<SitePayload>('/api/site')
+      .then(setSite)
       .catch(() => {});
     const loadOracle = () =>
       getJSON<OraclePayload>('/api/oracle')
@@ -58,6 +71,8 @@ export function SiteDataProvider({ children }: { children: ReactNode }) {
     connection,
     basket,
     oracle,
+    site,
+    onChain: Boolean(oracle?.oracleDeployed),
     isDemo: live?.dataSource.isDemo ?? basket?.basket.isDemo ?? false,
     networkLabel: network
       ? network === 'Mainnet'

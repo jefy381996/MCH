@@ -20,10 +20,13 @@ type WalletState =
 export function Token({
   oracle,
   showNotice = true,
+  heading: Heading = 'h2',
 }: {
   oracle: OraclePayload | null;
   /** Off where the page already says it, prominently. */
   showNotice?: boolean;
+  /** h3 where the panel sits under a section heading. */
+  heading?: 'h2' | 'h3';
 }) {
   const token = oracle?.token ?? null;
   const network = oracle?.network ?? undefined;
@@ -62,7 +65,9 @@ export function Token({
 
   return (
     <section className="card" aria-labelledby="token-title">
-      <h2 id="token-title">The MCH token</h2>
+      <Heading id="token-title" className="card-title">
+        The MCH token
+      </Heading>
       {showNotice && (
         <div className="banner" style={{ background: 'var(--page)' }}>
           <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
@@ -108,59 +113,64 @@ export function Token({
         </p>
       )}
 
-      <h3 style={{ fontSize: 15, margin: '20px 0 8px' }}>Your wallet</h3>
-      {wallet.kind === 'connected' ? (
-        <dl className="kv">
-          <dt>Wallet</dt>
-          <dd>{wallet.name}</dd>
-          <dt>MCH balance</dt>
-          <dd>
-            <b>
-              {wallet.mch === null || !token ? '—' : fmtTokenAmount(wallet.mch, token.decimals)}
-            </b>
-          </dd>
-          <dt>ADA</dt>
-          <dd>{fmtTokenAmount(wallet.ada, 6)}</dd>
-        </dl>
-      ) : wallets.length === 0 ? (
-        <p className="note" style={{ marginTop: 0 }}>
-          No Cardano wallet found in this browser. Install a wallet extension such as Lace or Eternl
-          to see your MCH balance here.
-        </p>
-      ) : (
-        <div className="filters" style={{ margin: 0 }}>
-          {wallets.map((w) => (
-            <button
-              key={w.key}
-              type="button"
-              onClick={() => void connect(w)}
-              disabled={wallet.kind === 'connecting'}
-            >
-              {w.icon && (
-                <img
-                  src={w.icon}
-                  alt=""
-                  width={16}
-                  height={16}
-                  style={{ verticalAlign: '-3px', marginRight: 6 }}
-                />
-              )}
-              {wallet.kind === 'connecting' && wallet.name === w.name
-                ? 'Connecting…'
-                : `Connect ${w.name}`}
-            </button>
-          ))}
-        </div>
+      {/* There is nothing to look up in a wallet until the coin exists. */}
+      {token && (
+        <>
+          <h3 style={{ fontSize: 15, margin: '20px 0 8px' }}>Your wallet</h3>
+          {wallet.kind === 'connected' ? (
+            <dl className="kv">
+              <dt>Wallet</dt>
+              <dd>{wallet.name}</dd>
+              <dt>MCH balance</dt>
+              <dd>
+                <b>
+                  {wallet.mch === null || !token ? '—' : fmtTokenAmount(wallet.mch, token.decimals)}
+                </b>
+              </dd>
+              <dt>ADA</dt>
+              <dd>{fmtTokenAmount(wallet.ada, 6)}</dd>
+            </dl>
+          ) : wallets.length === 0 ? (
+            <p className="note" style={{ marginTop: 0 }}>
+              No Cardano wallet found in this browser. Install a wallet extension such as Lace or
+              Eternl to see your MCH balance here.
+            </p>
+          ) : (
+            <div className="filters" style={{ margin: 0 }}>
+              {wallets.map((w) => (
+                <button
+                  key={w.key}
+                  type="button"
+                  onClick={() => void connect(w)}
+                  disabled={wallet.kind === 'connecting'}
+                >
+                  {w.icon && (
+                    <img
+                      src={w.icon}
+                      alt=""
+                      width={16}
+                      height={16}
+                      style={{ verticalAlign: '-3px', marginRight: 6 }}
+                    />
+                  )}
+                  {wallet.kind === 'connecting' && wallet.name === w.name
+                    ? 'Connecting…'
+                    : `Connect ${w.name}`}
+                </button>
+              ))}
+            </div>
+          )}
+          {wallet.kind === 'error' && (
+            <p className="note" role="alert">
+              {wallet.message}
+            </p>
+          )}
+          <p className="note">
+            Connecting only reads your balance. This site never asks you to sign or send anything
+            {token ? ` (token ${shorten(token.unit, 6)})` : ''}.
+          </p>
+        </>
       )}
-      {wallet.kind === 'error' && (
-        <p className="note" role="alert">
-          {wallet.message}
-        </p>
-      )}
-      <p className="note">
-        Connecting only reads your balance. This site never asks you to sign or send anything
-        {token ? ` (token ${shorten(token.unit, 6)})` : ''}.
-      </p>
     </section>
   );
 }

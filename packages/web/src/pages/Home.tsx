@@ -1,6 +1,7 @@
 import { METALS, type MetalId } from '@mch/index-core';
 import { useEffect, useMemo, useState } from 'react';
 import { DemoBanner } from '../components/DemoBanner.tsx';
+import { Delta } from '../components/Hero.tsx';
 import { LineChart } from '../components/LineChart.tsx';
 import {
   ButtonLink,
@@ -13,7 +14,6 @@ import {
 import { getJSON, type HistoryPayload } from '../lib/api.ts';
 import {
   deltaGlyph,
-  deltaWords,
   fmtAgo,
   fmtLondonMinute,
   fmtNumber,
@@ -34,7 +34,7 @@ const STATUS_TEXT = {
 } as const;
 
 const ROLE: Record<MetalId, string> = {
-  XAU: 'The classic store of value, held by central banks and investors worldwide.',
+  XAU: 'The most widely watched precious metal, held by central banks around the world.',
   XAG: 'Both a precious metal and an industrial one, used in solar panels and electronics.',
   XPT: 'A scarce industrial metal, essential to catalytic converters and hydrogen technology.',
   NI: 'The industrial metal of the energy transition, used in stainless steel and EV batteries.',
@@ -47,7 +47,7 @@ export function Home() {
       <HomeHero />
       {isDemo && live && (
         <div className="section-tight">
-          <DemoBanner label={live.dataSource.label} />
+          <DemoBanner />
         </div>
       )}
       <MetalStrip />
@@ -61,12 +61,13 @@ export function Home() {
 }
 
 function HomeHero() {
+  const { onChain } = useSiteData();
   return (
     <section className="home-hero" aria-labelledby="home-title">
       <div className="home-hero-copy">
         <p className="eyebrow">
           <span className="eyebrow-dot" aria-hidden="true" />
-          The MCH Index · published on Cardano
+          The MCH Index · built for Cardano
         </p>
         <h1 id="home-title" tabIndex={-1}>
           Four metals.
@@ -74,8 +75,10 @@ function HomeHero() {
           <span className="metal-text">One transparent index.</span>
         </h1>
         <p className="lead">
-          MCH (Metal Chain) tracks gold, silver, platinum and nickel in a single live index, and
-          publishes it on the Cardano blockchain, where anyone can check every number.
+          MCH (Metal Chain) tracks gold, silver, platinum and nickel in a single live index,{' '}
+          {onChain
+            ? 'and publishes it on the Cardano blockchain, where anyone can check every number.'
+            : 'designed to be published on the Cardano blockchain, where anyone can check every number.'}
         </p>
         <div className="actions">
           <ButtonLink to="/live-index">See the live index</ButtonLink>
@@ -98,7 +101,7 @@ function HomeHero() {
 }
 
 function LiveCard() {
-  const { live, basket, connection } = useSiteData();
+  const { live, connection, isDemo } = useSiteData();
   const [history, setHistory] = useState<HistoryPayload | null>(null);
 
   useEffect(() => {
@@ -131,27 +134,21 @@ function LiveCard() {
   return (
     <aside className="live-card" aria-label="MCH Index, live">
       <div className="live-card-top">
-        <span className="live-card-label">MCH Index</span>
-        <span className="status" data-state={state} role="status">
+        <span className="live-card-label">
+          MCH Index
+          {isDemo && <span className="demo-chip">Demo prices</span>}
+        </span>
+        <span className="status" data-state={state}>
           <span className="dot" aria-hidden="true" />
-          {STATUS_TEXT[state]}
+          <span role="status">{STATUS_TEXT[state]}</span>
           {connection === 'polling' && ' · reconnecting'}
         </span>
       </div>
       <p className="live-card-value">{snapshot ? fmtNumber(snapshot.index) : '—'}</p>
       {snapshot && (
         <p className="live-card-deltas">
-          {change24 !== null && change24 !== undefined && (
-            <span aria-label={`${deltaWords(change24)} ${fmtPct(Math.abs(change24))} in 24 hours`}>
-              <span aria-hidden="true">
-                {deltaGlyph(change24)} <b>{fmtPct(change24)}</b> 24h
-              </span>
-            </span>
-          )}
-          <span>
-            {deltaGlyph(snapshot.changeSinceBasePct)} <b>{fmtPct(snapshot.changeSinceBasePct)}</b>{' '}
-            since base date
-          </span>
+          {change24 !== null && change24 !== undefined && <Delta value={change24} label="24h" />}
+          <Delta value={snapshot.changeSinceBasePct} label="against base prices" />
         </p>
       )}
       <div className="live-card-chart">
@@ -171,8 +168,7 @@ function LiveCard() {
       </div>
       <div className="live-card-foot">
         <span>
-          {snapshot ? `Updated ${fmtAgo(snapshot.computedAt)}` : 'Connecting…'}
-          {basket ? ` · base 100` : ''}
+          {snapshot ? `Updated ${fmtAgo(snapshot.computedAt)} · base 100` : 'Connecting…'}
         </span>
         <Link to="/live-index">Full index →</Link>
       </div>
@@ -181,7 +177,7 @@ function LiveCard() {
 }
 
 function MetalStrip() {
-  const { live, basket } = useSiteData();
+  const { live, basket, isDemo } = useSiteData();
   const components = live?.snapshot?.components;
   const ids: MetalId[] = basket?.basket.components.map((c) => c.metal as MetalId) ?? [
     'XAU',
@@ -195,7 +191,7 @@ function MetalStrip() {
         id="basket-heading"
         eyebrow="The basket"
         title="Precious and industrial metals, in equal measure"
-        lead="Each metal carries an equal weight. Its price is compared with its own price on the base date, so a 10% rise counts the same whether it is gold or nickel."
+        lead={`Each metal carries an equal weight. Its price is compared with its own base price, so a 10% rise counts the same whether it is gold or nickel.${isDemo ? ' The prices shown are simulated for this preview.' : ''}`}
       />
       <div className="metal-grid">
         {ids.map((id) => {
@@ -219,8 +215,8 @@ function MetalStrip() {
               <p className="metal-change">
                 {c ? (
                   <>
-                    {deltaGlyph(c.changeSinceBasePct)} {fmtPct(c.changeSinceBasePct)}{' '}
-                    <span>since base</span>
+                    <span aria-hidden="true">{deltaGlyph(c.changeSinceBasePct)}</span>{' '}
+                    {fmtPct(c.changeSinceBasePct)} <span>against base price</span>
                   </>
                 ) : (
                   <span>Waiting for prices</span>
@@ -245,40 +241,42 @@ function MetalStrip() {
   );
 }
 
-const FEATURES: Array<{ icon: IconName; title: string; text: string }> = [
-  {
-    icon: 'layers',
-    title: 'One number, four metals',
-    text: 'Gold, silver, platinum and nickel combined into a single index that started at 100 on its base date.',
-  },
-  {
-    icon: 'open',
-    title: 'Open methodology',
-    text: 'The formula, the weights and the base prices are published. Anyone can recompute the index themselves.',
-  },
-  {
-    icon: 'shield',
-    title: 'Verified on-chain',
-    text: 'The Cardano contract recalculates every update from the posted prices and rejects anything that does not match.',
-  },
-  {
-    icon: 'exact',
-    title: 'Exact to the last digit',
-    text: 'Whole-number arithmetic, identical in the website, the backend and the contract. No rounding drift, ever.',
-  },
-  {
-    icon: 'filter',
-    title: 'Guarded prices',
-    text: 'Incoming prices are checked before they count, so one bad print cannot move the index.',
-  },
-  {
-    icon: 'pin',
-    title: 'Built in the United Kingdom',
-    text: 'Developed with UK financial-promotion rules in mind, and launched only after legal review.',
-  },
-];
-
 function WhyMch() {
+  const { onChain } = useSiteData();
+  const features: Array<{ icon: IconName; title: string; text: string }> = [
+    {
+      icon: 'layers',
+      title: 'One number, four metals',
+      text: 'Gold, silver, platinum and nickel combined into a single index, which is 100 when every metal is at its base price.',
+    },
+    {
+      icon: 'open',
+      title: 'Open methodology',
+      text: 'The formula, the weights and the base prices are published. Anyone can recompute the index themselves.',
+    },
+    {
+      icon: 'shield',
+      title: onChain ? 'Verified on-chain' : 'Built to be verified on-chain',
+      text: onChain
+        ? 'The Cardano contract recalculates every update from the posted prices and rejects anything that does not match.'
+        : 'Once live, the Cardano contract recalculates every update from the posted prices and rejects anything that does not match.',
+    },
+    {
+      icon: 'exact',
+      title: 'Exact to the last digit',
+      text: 'Whole-number arithmetic, identical in the backend and the on-chain contract, checked against shared test cases.',
+    },
+    {
+      icon: 'filter',
+      title: 'Guarded prices',
+      text: 'Incoming prices are checked before they count, so one bad print cannot move the index.',
+    },
+    {
+      icon: 'pin',
+      title: 'Built in the United Kingdom',
+      text: 'Developed in the UK, with a legal review and an independent security audit on the roadmap.',
+    },
+  ];
   return (
     <section className="section" aria-labelledby="why-heading">
       <SectionHead
@@ -287,7 +285,7 @@ function WhyMch() {
         title="A metals index you can verify, not just trust"
       />
       <div className="feature-grid">
-        {FEATURES.map((f) => (
+        {features.map((f) => (
           <Feature key={f.title} icon={f.icon} title={f.title}>
             {f.text}
           </Feature>
@@ -297,35 +295,34 @@ function WhyMch() {
   );
 }
 
-const STEPS = [
-  {
-    title: 'Prices come in',
-    text: 'Prices for each metal arrive from market-data sources throughout the trading day.',
-  },
-  {
-    title: 'They are checked',
-    text: 'A guard compares each price with recent history and holds back anything implausible.',
-  },
-  {
-    title: 'The index is calculated',
-    text: 'Each metal is compared with its base price, weighted and combined into one number.',
-  },
-  {
-    title: 'It is published on Cardano',
-    text: 'The oracle writes the index on-chain, where the contract verifies it before accepting it.',
-  },
-];
-
 function HowItWorksPreview() {
+  const steps = [
+    {
+      title: 'Prices come in',
+      text: 'Prices for each metal arrive from market-data sources (simulated during this preview).',
+    },
+    {
+      title: 'They are checked',
+      text: 'A guard compares each price with the last one accepted and holds back anything implausible.',
+    },
+    {
+      title: 'The index is calculated',
+      text: 'Each metal is compared with its base price, weighted and combined into one number.',
+    },
+    {
+      title: 'It goes on Cardano',
+      text: 'Once the oracle is live, it writes the index on-chain, where the contract verifies it before accepting it.',
+    },
+  ];
   return (
     <section className="section" aria-labelledby="how-heading">
       <SectionHead
         id="how-heading"
         eyebrow="How it works"
-        title="From market prices to a verified number on‑chain"
+        title={'From market prices to a verified number on‑chain'}
       />
       <ol className="steps">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <li key={s.title} className="step">
             <span className="step-number" aria-hidden="true">
               {String(i + 1).padStart(2, '0')}
@@ -350,10 +347,11 @@ function CoinPreview() {
       <div className="split-panel">
         <div>
           <p className="eyebrow">The MCH coin</p>
-          <h2 id="coin-heading">A native Cardano token with a supply fixed for good</h2>
+          <h2 id="coin-heading">A native Cardano token with a fixed supply</h2>
           <p className="lead">
-            MCH is created once, in a single transaction, and the contract makes it impossible to
-            create any more. Its details are readable by any Cardano wallet.
+            MCH is designed to be created once, in a single transaction. After that, its contract
+            makes it impossible to create any more. Wallets that support the CIP-68 standard can
+            read its details.
           </p>
           <p className="fine">
             MCH is not backed by metal, cannot be exchanged for metal, and is not offered for sale.
@@ -364,7 +362,7 @@ function CoinPreview() {
         </div>
         <dl className="fact-grid">
           <div>
-            <dt>Total supply</dt>
+            <dt>{exists ? 'Total supply' : 'Planned supply'}</dt>
             <dd>100,000,000 MCH</dd>
           </div>
           <div>
@@ -380,7 +378,7 @@ function CoinPreview() {
             <dd>CIP-68</dd>
           </div>
           <div>
-            <dt>Divisible to</dt>
+            <dt>{exists ? 'Divisible to' : 'Planned decimals'}</dt>
             <dd>6 decimal places</dd>
           </div>
           <div>
@@ -405,21 +403,21 @@ function RoadmapPreview() {
         id="roadmap-heading"
         eyebrow="Roadmap"
         title="Where MCH is today"
-        lead="The technology is built and tested. The remaining steps are about data licensing, independent checks and launching the right way."
+        lead="The technology is built and tested. Next come licensed market data, the live on-chain index, and independent legal and security checks."
       />
       <ol className="roadmap-strip">
-        {items.slice(0, 7).map((m) => (
-          <li key={m.title} data-status={m.status}>
+        {items.map((m) => (
+          <li key={m.title}>
             <span className="chip" data-status={m.status}>
               {STATUS_LABEL[m.status]}
             </span>
             <span className="roadmap-strip-title">{m.title}</span>
           </li>
         ))}
+        <li className="roadmap-strip-more">
+          <Link to="/roadmap">See the full roadmap →</Link>
+        </li>
       </ol>
-      <p className="section-link">
-        <Link to="/roadmap">See the full roadmap →</Link>
-      </p>
     </section>
   );
 }

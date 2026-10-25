@@ -1,5 +1,6 @@
 import { PageHeader } from '../components/ui.tsx';
 import { Link } from '../lib/router.tsx';
+import { useSiteData } from '../lib/site-data.tsx';
 
 const SECTIONS = [
   { id: 'not-an-offer', title: 'Not an offer' },
@@ -7,10 +8,15 @@ const SECTIONS = [
   { id: 'index', title: 'About the MCH Index' },
   { id: 'advice', title: 'No advice' },
   { id: 'privacy', title: 'Privacy' },
+  { id: 'terms', title: 'Terms of use' },
   { id: 'trademarks', title: 'Trademarks' },
 ];
 
 export function Legal() {
+  const { site, isDemo } = useSiteData();
+  const runBy = site?.operator ?? 'the MCH project';
+  const email = site?.contactEmail;
+  const mail = email ? <a href={`mailto:${email}`}>{email}</a> : null;
   return (
     <>
       <PageHeader
@@ -32,10 +38,9 @@ export function Legal() {
           <section id="not-an-offer" aria-labelledby="h-offer">
             <h2 id="h-offer">Not an offer</h2>
             <p>
-              MCH tokens are not offered for sale on this site, and are not currently offered for
-              sale anywhere else. Nothing on this site is an offer, an invitation or an inducement
-              to buy, sell or hold MCH or any other cryptoasset, or to engage in any investment
-              activity.
+              MCH tokens are not offered for sale on this site or anywhere else. Nothing on this
+              site is an offer, an invitation or an inducement to buy, sell or hold MCH or any other
+              cryptoasset, or to engage in any investment activity.
             </p>
             <p>
               The MCH coin is not backed by metal, cannot be exchanged for metal, and its price is
@@ -65,15 +70,19 @@ export function Legal() {
           <section id="index" aria-labelledby="h-index">
             <h2 id="h-index">About the MCH Index</h2>
             <p>
-              The MCH Index is calculated by MCH from prices supplied by third parties. It is not an
-              official price of the London Metal Exchange, the LBMA, ICE Benchmark Administration or
-              any other market or benchmark administrator, and it is not endorsed by any of them.
+              The MCH Index is calculated by MCH from metal prices
+              {isDemo ? ' (simulated during this preview)' : ' supplied by third parties'}. It is
+              not an official price of the London Metal Exchange, the LBMA, ICE Benchmark
+              Administration or any other market or benchmark administrator, and it is not endorsed
+              by any of them.
             </p>
             <p>
-              During the current preview, the prices on this site are simulated demonstration data
-              and do not reflect real markets. The index is provided as information only, without
-              any guarantee of accuracy, completeness or availability, and is not intended for use
-              as a benchmark in financial contracts or instruments.
+              {isDemo
+                ? 'During the current preview, the prices on this site are simulated demonstration data and do not reflect real markets. '
+                : ''}
+              The index is provided as information only, without any guarantee of accuracy,
+              completeness or availability, and is not intended for use as a benchmark in financial
+              contracts or instruments.
             </p>
           </section>
 
@@ -87,20 +96,64 @@ export function Legal() {
 
           <section id="privacy" aria-labelledby="h-privacy">
             <h2 id="h-privacy">Privacy</h2>
+            <p>
+              This site is run by {runBy}
+              {mail ? <>, who can be contacted at {mail}</> : null}. In this notice,
+              &ldquo;we&rdquo; means them.
+            </p>
             <ul>
-              <li>This site uses no cookies, no analytics and no advertising trackers.</li>
               <li>
-                If you choose a light or dark theme, that choice is stored in your own browser and
-                never sent to us.
+                <strong>We collect nothing that identifies you.</strong> There are no cookies, no
+                analytics, no advertising trackers, no accounts and no forms.
               </li>
               <li>
-                Connecting a Cardano wallet is optional. The site only reads your balance to show it
-                to you; it never asks you to sign or send anything, and the balance is not sent to
-                us.
+                <strong>Server logs.</strong> Our server records which pages are requested and how
+                quickly it answers, but not who asked: it does not store visitors&rsquo; IP
+                addresses.
               </li>
               <li>
-                Like most websites, our servers keep short-lived technical logs, such as the network
-                address that made a request, to keep the service running and secure.
+                <strong>Hosting.</strong> Our hosting provider necessarily handles technical data,
+                such as your IP address, to deliver pages to you and keep the service secure, under
+                its own terms and privacy policy.
+              </li>
+              <li>
+                <strong>In your browser only.</strong> If you choose a light or dark theme, that
+                choice is stored in your own browser and never sent to us.
+              </li>
+              <li>
+                <strong>Wallets.</strong> Connecting a Cardano wallet is optional. The site only
+                reads your balance to show it to you; it never asks you to sign or send anything,
+                and the balance is not sent to us.
+              </li>
+            </ul>
+            <p>
+              Under UK data protection law you have rights over personal data about you, including
+              to access it and to have it erased. Because we do not store personal data, there is
+              normally nothing to access or delete. If you have a concern, please contact us
+              {mail ? <> at {mail}</> : null}. You can also complain to the Information
+              Commissioner&rsquo;s Office at{' '}
+              <a href="https://ico.org.uk" rel="noreferrer">
+                ico.org.uk
+              </a>
+              .
+            </p>
+          </section>
+
+          <section id="terms" aria-labelledby="h-terms">
+            <h2 id="h-terms">Terms of use</h2>
+            <ul>
+              <li>
+                This site provides information about the MCH Index and the MCH coin. You may use it
+                for personal, informational purposes.
+              </li>
+              <li>
+                The information is provided &ldquo;as is&rdquo;, without any warranty of accuracy,
+                completeness or availability, and may change without notice.
+              </li>
+              <li>
+                To the extent the law allows, we are not liable for any loss arising from use of, or
+                reliance on, this site. Nothing in these terms limits any liability that cannot be
+                limited by law.
               </li>
             </ul>
           </section>

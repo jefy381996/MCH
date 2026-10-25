@@ -34,6 +34,13 @@ export interface ServerOptions {
   webDistDir?: string;
   logger?: FastifyBaseLogger;
   now?: () => Date;
+  /** Shown on the About and legal pages when set. */
+  site?: { operator?: string; contactEmail?: string };
+}
+
+export interface SitePayload {
+  operator: string | null;
+  contactEmail: string | null;
 }
 
 /** Everything the dashboard needs in one payload. Also pushed over the WebSocket. */
@@ -83,6 +90,19 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
   const app = Fastify({
     ...(o.logger ? { loggerInstance: o.logger } : { logger: false }),
     trustProxy: true,
+    // Fastify's own request log records visitors' IP addresses; this site keeps none.
+    disableRequestLogging: true,
+  });
+  app.addHook('onResponse', async (req, reply) => {
+    req.log.info(
+      {
+        method: req.method,
+        url: req.url,
+        status: reply.statusCode,
+        ms: Math.round(reply.elapsedTime),
+      },
+      'request',
+    );
   });
 
   await app.register(cors, {
@@ -168,6 +188,11 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
       })),
     };
   });
+
+  app.get('/api/site', async (): Promise<SitePayload> => ({
+    operator: o.site?.operator?.trim() || null,
+    contactEmail: o.site?.contactEmail?.trim() || null,
+  }));
 
   app.get('/api/basket', async () => ({
     basket: serializeBasket(o.basket),

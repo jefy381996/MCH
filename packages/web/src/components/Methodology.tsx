@@ -20,8 +20,8 @@ export function Methodology({
       {basket && (
         <>
           <p>
-            Base date: <b>{fmtDate(basket.baseDate)}</b>, when the index was exactly 100. Basket
-            version {basket.version}.
+            Base date: <b>{fmtDate(basket.baseDate)}</b>. The index is 100 whenever every metal is
+            at its base price. Basket version {basket.version}.
             {basket.isDemo ? ' The base prices are illustrative placeholders for the demo.' : ''}
           </p>
           <div className="table-wrap">
@@ -60,9 +60,8 @@ export function Methodology({
       )}
       <p>
         All arithmetic is done in whole numbers of millionths, with one rounding step at the end, so
-        the website, the backend and the on-chain contract always agree to the last digit. The
-        contract recomputes the index from the posted prices and rejects any update that does not
-        match.
+        the backend and the on-chain contract always agree to the last digit. The contract
+        recomputes the index from the posted prices and rejects any update that does not match.
       </p>
       <p>
         Metals do not trade around the clock. When a market is closed the index uses that

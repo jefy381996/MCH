@@ -290,7 +290,7 @@ button:disabled {
   overflow: visible;
 }
 .chart .tick {
-  fill: var(--axis-ink);
+  fill: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -372,7 +372,7 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.multiple h3 {
+.multiple h4 {
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -380,7 +380,7 @@ button:disabled {
   font-weight: 600;
   margin: 0 0 4px;
 }
-.multiple h3 span {
+.multiple h4 span {
   color: var(--text-2);
   font-weight: 450;
 }
@@ -577,6 +577,10 @@ h1:focus {
 }
 .site-nav {
   flex: 1;
+  order: 1;
+}
+.site-header-inner .header-actions {
+  order: 2;
 }
 .site-nav ul {
   display: flex;
@@ -1290,11 +1294,15 @@ h1:focus {
   border-radius: var(--radius);
   background: var(--surface);
 }
-.flow-node strong {
+.flow-text {
+  display: grid;
+  gap: 2px;
   margin-top: 10px;
+}
+.flow-text strong {
   font-size: 15px;
 }
-.flow-node > span:last-child {
+.flow-text span {
   font-size: 13px;
   color: var(--text-2);
 }
@@ -1317,7 +1325,7 @@ h1:focus {
     align-items: center;
     gap: 12px;
   }
-  .flow-node strong {
+  .flow-text {
     margin-top: 0;
   }
   .flow-node:not(:last-child)::after {
@@ -1380,14 +1388,13 @@ h1:focus {
   margin: 16px 0;
 }
 .metal-list li {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 10px 84px minmax(0, 1fr);
+  align-items: baseline;
   gap: 10px;
-  flex-wrap: wrap;
 }
 .metal-list strong {
   color: var(--text-1);
-  min-width: 80px;
 }
 .plain-list {
   padding-left: 20px;
@@ -1490,7 +1497,7 @@ h1:focus {
 }
 .timeline-item[data-status='ready'] .timeline-marker {
   border-color: var(--series-1);
-  color: var(--series-1);
+  color: var(--text-1);
 }
 .timeline-body {
   padding: 18px 20px;
@@ -1596,6 +1603,12 @@ h1:focus {
 .faq summary::-webkit-details-marker {
   display: none;
 }
+.faq summary h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
 .faq summary::after {
   content: '+';
   flex: none;
@@ -1677,6 +1690,9 @@ h1:focus {
 }
 
 /* ---- footer ---- */
+main.page {
+  padding-bottom: 0;
+}
 .site-footer {
   margin-top: 96px;
   padding-top: 40px;
@@ -1733,4 +1749,38 @@ h1:focus {
   .footer-brand {
     grid-column: 1 / -1;
   }
+}
+
+/* ---- review additions ---- */
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  vertical-align: 2px;
+  color: var(--text-1);
+  background: var(--warning-wash);
+  border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
+}
+.card .card-title {
+  font-size: 17px;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.roadmap-strip .roadmap-strip-more {
+  justify-content: center;
+  align-items: center;
+  border-style: dashed;
+  background: transparent;
+}
+.roadmap-strip-more a {
+  font-weight: 600;
+  text-decoration: none;
+}
+.roadmap-strip-more a:hover {
+  text-decoration: underline;
 }

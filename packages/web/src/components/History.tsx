@@ -1,7 +1,7 @@
 import { METALS, type BasketFile, type MetalId } from '@mch/index-core';
 import { useEffect, useMemo, useState } from 'react';
 import { getJSON, type HistoryPayload, type IndexPayload, type Range } from '../lib/api.ts';
-import { fmtLondonMinute, fmtNumber, fmtPct, fmtUsd } from '../lib/format.ts';
+import { fmtDate, fmtLondonMinute, fmtNumber, fmtPct, fmtUsd } from '../lib/format.ts';
 import { extent, niceTicks, type Point } from '../lib/scale.ts';
 import { DataTable, LineChart } from './LineChart.tsx';
 
@@ -83,7 +83,12 @@ export function History({
     return niceTicks(lo, hi, 3).domain;
   }, [metals]);
 
-  const rangeLong = RANGES.find((r) => r.id === range)!.long;
+  // Say what the chart really covers: a young history has less than "last year" to show.
+  const firstAt = history?.points[0] ? Date.parse(history.points[0].t) : null;
+  const rangeLong =
+    history && firstAt !== null && firstAt - Date.parse(history.from) > 36 * 3_600_000
+      ? `since ${fmtDate(new Date(firstAt).toISOString())}`
+      : RANGES.find((r) => r.id === range)!.long;
 
   return (
     <section aria-labelledby="history-title" style={{ marginTop: 32 }}>
@@ -104,8 +109,10 @@ export function History({
       </div>
 
       <div className="card">
-        <h2>MCH Index</h2>
-        <p className="sub">Index value, {rangeLong}. 100 is the value on the base date.</p>
+        <h3 className="card-title">MCH Index</h3>
+        <p className="sub">
+          Index value, {rangeLong}. 100 is the value when every metal is at its base price.
+        </p>
         <LineChart
           points={indexPoints}
           height={300}
@@ -133,7 +140,7 @@ export function History({
       </div>
 
       <div className="card">
-        <h2>Each metal since the base date</h2>
+        <h3 className="card-title">Each metal since the base date</h3>
         <p className="sub">
           Every metal rebased to 100 on the base date and drawn on the same scale, so the moves
           compare directly.
@@ -143,13 +150,13 @@ export function History({
             const last = m.points[m.points.length - 1];
             return (
               <div className="multiple" key={m.metal}>
-                <h3>
+                <h4>
                   {METALS[m.metal].name}
                   <span>
                     {m.price ? `${fmtUsd(m.price, m.metal === 'NI' ? 0 : 2)} · ` : ''}
                     {last ? fmtPct(last.v - 100) : ''}
                   </span>
-                </h3>
+                </h4>
                 <LineChart
                   points={m.points}
                   height={150}
