@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   getJSON,
   type BasketPayload,
+  type HistoryPayload,
   type IndexPayload,
   type OraclePayload,
   type SitePayload,
@@ -16,6 +17,8 @@ export interface SiteData {
   basket: BasketPayload | null;
   oracle: OraclePayload | null;
   site: SitePayload | null;
+  /** The last 7 days, for the home page's chart and sparklines. Refreshed every minute. */
+  week: HistoryPayload | null;
   isDemo: boolean;
   /** The price oracle is running on Cardano: only then is the index "published on-chain". */
   onChain: boolean;
@@ -34,6 +37,7 @@ export function SiteDataProvider({ children }: { children: ReactNode }) {
   const [basket, setBasket] = useState<BasketPayload | null>(null);
   const [oracle, setOracle] = useState<OraclePayload | null>(null);
   const [site, setSite] = useState<SitePayload | null>(null);
+  const [week, setWeek] = useState<HistoryPayload | null>(null);
 
   useEffect(() => {
     getJSON<BasketPayload>('/api/basket')
@@ -60,8 +64,16 @@ export function SiteDataProvider({ children }: { children: ReactNode }) {
                 },
           ),
         );
+    const loadWeek = () =>
+      getJSON<HistoryPayload>('/api/index/history?range=7d')
+        .then(setWeek)
+        .catch(() => {});
     void loadOracle();
-    const timer = window.setInterval(loadOracle, ORACLE_REFRESH_MS);
+    void loadWeek();
+    const timer = window.setInterval(() => {
+      void loadOracle();
+      void loadWeek();
+    }, ORACLE_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -72,6 +84,7 @@ export function SiteDataProvider({ children }: { children: ReactNode }) {
     basket,
     oracle,
     site,
+    week,
     onChain: Boolean(oracle?.oracleDeployed),
     isDemo: live?.dataSource.isDemo ?? basket?.basket.isDemo ?? false,
     networkLabel: network

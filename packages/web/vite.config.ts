@@ -10,5 +10,11 @@ export default defineConfig({
     // In development the backend runs separately; same-origin in production.
     proxy: { '/api': { target: api, changeOrigin: true, ws: true } },
   },
-  build: { outDir: 'dist', sourcemap: true },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    // Never inline assets as data: URLs. The server's content security policy only
+    // allows fonts and scripts from the site itself, so an inlined font would be blocked.
+    assetsInlineLimit: 0,
+  },
 });

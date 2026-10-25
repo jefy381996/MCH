@@ -7,6 +7,7 @@ import {
   fmtNumber,
   fmtPct,
 } from '../lib/format.ts';
+import { RollingNumber } from '../fx/RollingNumber.tsx';
 import type { IndexPayload } from '../lib/api.ts';
 import type { Connection } from '../lib/useLiveIndex.ts';
 
@@ -51,7 +52,9 @@ export function Hero({
             MCH Index
             {isDemo && <span className="demo-chip">Demo prices</span>}
           </p>
-          <p className="hero-value">{snapshot ? fmtNumber(snapshot.index) : '—'}</p>
+          <p className="hero-value">
+            {snapshot ? <RollingNumber value={fmtNumber(snapshot.index)} /> : '—'}
+          </p>
           {snapshot && (
             <div className="deltas">
               <Delta

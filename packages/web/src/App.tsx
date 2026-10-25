@@ -89,7 +89,10 @@ function Site() {
       </a>
       <Header />
       <main id="main" className="page">
-        <Page />
+        {/* Keyed by page, so each new page plays its entrance. */}
+        <div key={path} className="route" data-page={path}>
+          <Page />
+        </div>
       </main>
       <div className="page">
         <Footer />

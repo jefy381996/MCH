@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import { ButtonLink, PageHeader } from '../components/ui.tsx';
+import { RollingNumber } from '../fx/RollingNumber.tsx';
+import { fmtNumber } from '../lib/format.ts';
 import { Link } from '../lib/router.tsx';
 import { useSiteData } from '../lib/site-data.tsx';
 
 export function Faq() {
-  const { onChain, site } = useSiteData();
+  const { onChain, site, live, isDemo } = useSiteData();
+  const index = live?.snapshot?.index;
   const questions: Array<{ q: string; a: ReactNode }> = [
     {
       q: 'What is MCH?',
@@ -142,15 +145,41 @@ export function Faq() {
         title="Frequently asked questions"
         lead="Straight answers about the MCH Index and the MCH coin."
       />
-      <div className="faq">
-        {questions.map(({ q, a }) => (
-          <details key={q}>
-            <summary>
-              <h2>{q}</h2>
-            </summary>
-            <div className="faq-answer">{a}</div>
-          </details>
-        ))}
+      <div className="faq-layout">
+        <div className="faq">
+          {questions.map(({ q, a }) => (
+            <details key={q}>
+              <summary>
+                <h2>{q}</h2>
+              </summary>
+              <div className="faq-answer">{a}</div>
+            </details>
+          ))}
+        </div>
+        <aside className="faq-aside" aria-labelledby="faq-glance">
+          <div className="faq-aside-card glow-border">
+            <h2 id="faq-glance" className="eyebrow">
+              At a glance
+            </h2>
+            <p className="faq-aside-index">
+              <span>MCH Index{isDemo ? ' (demo)' : ''}</span>
+              <strong>{index ? <RollingNumber value={fmtNumber(index)} /> : '—'}</strong>
+            </p>
+            <ul className="check-list">
+              <li>Four metals, weighted equally</li>
+              <li>Formula and base prices published</li>
+              <li>Fixed coin supply, enforced by contract</li>
+            </ul>
+            <ul className="cross-list">
+              <li>Not backed by metal</li>
+              <li>Not offered for sale</li>
+              <li>Not financial advice</li>
+            </ul>
+            <ButtonLink to="/how-it-works" variant="secondary">
+              How it works
+            </ButtonLink>
+          </div>
+        </aside>
       </div>
       <section className="cta-band" aria-labelledby="faq-cta">
         <h2 id="faq-cta">Still curious?</h2>

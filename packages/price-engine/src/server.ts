@@ -17,7 +17,7 @@ import {
   type IndexSnapshotDTO,
   type MetalId,
 } from '@mch/index-core';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { PriceEngine } from './engine.ts';
 import type { OracleReader, OracleStatus, TokenInfo } from './oracle-reader.ts';
@@ -91,7 +91,7 @@ export async function buildServer(o: ServerOptions): Promise<FastifyInstance> {
     ...(o.logger ? { loggerInstance: o.logger } : { logger: false }),
     trustProxy: true,
     // Fastify's own request log records visitors' IP addresses; this site keeps none.
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
   });
   app.addHook('onResponse', async (req, reply) => {
     req.log.info(

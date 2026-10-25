@@ -83,7 +83,7 @@ export function TokenPage() {
             later. Holders can burn their own coins if they choose.
           </Feature>
           <Feature icon="open" title="Readable by wallets">
-            Name, ticker, description and logo follow the CIP-68 standard, so wallets and explorers
+            Name, ticker, description and logo follow the CIP‑68 standard, so wallets and explorers
             that support it can show them. The project&rsquo;s admin key can update these details;
             it can never change the supply.
           </Feature>

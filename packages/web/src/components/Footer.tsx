@@ -79,6 +79,9 @@ export function Footer() {
         </p>
         <p>© {new Date().getFullYear()} MCH · Metal Chain</p>
       </div>
+      <p className="footer-wordmark" aria-hidden="true">
+        Metal Chain
+      </p>
     </footer>
   );
 }

@@ -25,7 +25,7 @@ export function Methodology({
             {basket.isDemo ? ' The base prices are illustrative placeholders for the demo.' : ''}
           </p>
           <div className="table-wrap">
-            <table>
+            <table className="table-stack">
               <thead>
                 <tr>
                   <th scope="col">Metal</th>
